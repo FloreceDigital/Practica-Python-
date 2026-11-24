@@ -1,0 +1,154 @@
+:root {
+  --fondo: #14171c;
+  --panel: #1f242c;
+  --borde: #323945;
+  --texto: #f2f4f7;
+  --tenue: #9aa4b2;
+  --verde: #1fa463;
+  --verde-osc: #17804d;
+  --rojo: #d64545;
+  --amarillo: #f2b84b;
+  --radio: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+button:active { transform: scale(0.98); }
+
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: baseline;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--borde);
+}
+.barra h1 { margin: 0; font-size: 1.5rem; }
+.barra .dato { color: var(--tenue); font-size: 1.1rem; }
+.barra .dato b { color: var(--texto); }
+.barra .alerta b { color: var(--amarillo); }
+
+main { padding: 20px; max-width: 1000px; margin: 0 auto; }
+
+.oculto { display: none !important; }
+
+/* --- Pantalla del montacargas --- */
+.pregunta { font-size: 1.3rem; color: var(--tenue); margin: 8px 0 16px; }
+
+.presentaciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.presentacion {
+  background: var(--panel);
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 28px 24px;
+  text-align: left;
+  min-height: 180px;
+}
+.presentacion .nombre { font-size: 3rem; font-weight: 800; line-height: 1; }
+.presentacion .desc { font-size: 1.3rem; margin-top: 10px; }
+.presentacion .cant { color: var(--tenue); margin-top: 6px; font-size: 1.1rem; }
+
+.secundario {
+  background: none;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px 20px;
+  font-size: 1.15rem;
+  margin-top: 20px;
+}
+.secundario.activo { border-color: var(--amarillo); color: var(--amarillo); }
+
+.confirmar {
+  background: var(--panel);
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 28px 24px;
+  text-align: center;
+}
+.confirmar .resumen { font-size: 2.2rem; font-weight: 800; }
+.confirmar .detalle { font-size: 1.3rem; color: var(--tenue); margin: 8px 0 24px; }
+
+.fardos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.fardos button {
+  width: 80px; height: 80px;
+  font-size: 2.5rem;
+  border-radius: 50%;
+  background: var(--fondo);
+  border: 2px solid var(--borde);
+}
+.fardos output { font-size: 3.5rem; font-weight: 800; min-width: 110px; font-variant-numeric: tabular-nums; }
+
+.btn-grande {
+  display: block;
+  width: 100%;
+  padding: 28px;
+  font-size: 1.8rem;
+  font-weight: 800;
+  border: none;
+  border-radius: var(--radio);
+  background: var(--verde);
+  color: #fff;
+}
+.btn-grande:active { background: var(--verde-osc); }
+.btn-grande:disabled { opacity: 0.6; }
+
+.fila-botones { display: flex; gap: 12px; margin-top: 12px; }
+.fila-botones button { flex: 1; }
+.btn-texto {
+  padding: 20px;
+  font-size: 1.2rem;
+  border-radius: var(--radio);
+  background: var(--fondo);
+  border: 2px solid var(--borde);
+}
+.btn-texto.peligro { color: var(--rojo); border-color: var(--rojo); }
+
+.hecho { text-align: center; }
+.hecho .check { font-size: 4rem; color: var(--verde); line-height: 1; }
+.hecho .folio { font-size: 3rem; font-weight: 800; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.hecho .error { color: var(--amarillo); font-size: 1.2rem; }
+
+/* --- Pantalla del operador --- */
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.tarjeta { background: var(--panel); border-radius: var(--radio); padding: 16px; }
+.tarjeta .num { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tarjeta .lbl { color: var(--tenue); }
+
+form.lote { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+form.lote input {
+  flex: 1; min-width: 200px;
+  padding: 14px; font-size: 1.3rem;
+  background: var(--panel); color: var(--texto);
+  border: 2px solid var(--borde); border-radius: var(--radio);
+  text-transform: uppercase;
+}
+form.lote button, a.boton {
+  padding: 14px 22px; font-size: 1.1rem; font-weight: 700;
+  border: none; border-radius: var(--radio);
+  background: var(--verde); color: #fff; text-decoration: none;
+}
+
+.tabla-envoltura { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+th { color: var(--tenue); font-weight: 600; }
+tr.anulada td { color: var(--rojo); text-decoration: line-through; }

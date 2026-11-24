@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <title>Operador - {{ linea }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <header class="barra">
+    <h1>{{ linea }} · Operador</h1>
+    <span class="dato">Turno <b>{{ resumen.turno }}</b></span>
+  </header>
+
+  <main>
+    <div class="tarjetas">
+      <div class="tarjeta"><div class="num">{{ resumen.tarimas }}</div><div class="lbl">Tarimas del turno</div></div>
+      <div class="tarjeta"><div class="num">{{ resumen.fardos }}</div><div class="lbl">Fardos</div></div>
+      <div class="tarjeta"><div class="num">{{ "{:,}".format(resumen.libras) }}</div><div class="lbl">Libras</div></div>
+    </div>
+
+    <form class="lote" method="post">
+      <input name="lote" value="{{ lote }}" placeholder="Lote de la corrida" aria-label="Lote de la corrida">
+      <button type="submit">Guardar lote</button>
+      <a class="boton" href="/excel">Descargar Excel</a>
+    </form>
+
+    <div class="tabla-envoltura">
+      <table>
+        <thead>
+          <tr><th>Folio</th><th>Fecha</th><th>Hora</th><th>Turno</th><th>Presentación</th><th>Lote</th><th>Fardos</th><th>Libras</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for t in ultimas %}
+            <tr class="{{ 'anulada' if t.estado == 'ANULADA' }}">
+              <td>{{ t.folio }}</td><td>{{ t.fecha }}</td><td>{{ t.hora }}</td><td>{{ t.turno }}</td>
+              <td>{{ t.presentacion }}</td><td>{{ t.lote }}</td><td>{{ t.fardos }}</td>
+              <td>{{ t.libras }}</td><td>{{ t.estado }}{% if t.completa == 'NO' %} · incompleta{% endif %}</td>
+              <td><a href="/etiqueta/{{ t.folio }}" style="color:inherit">etiqueta</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="10">Aún no hay tarimas registradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

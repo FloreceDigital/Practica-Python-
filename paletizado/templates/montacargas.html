@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tarimas - {{ linea }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <header class="barra">
+    <h1>{{ linea }}</h1>
+    {% if lote %}
+      <span class="dato">Lote <b>{{ lote }}</b></span>
+    {% else %}
+      <span class="dato alerta">Lote <b>sin definir</b></span>
+    {% endif %}
+    <span class="dato">Turno {{ resumen.turno }}: <b>{{ resumen.tarimas }}</b> tarimas</span>
+  </header>
+
+  <main>
+    <!-- Paso 1: elegir presentación -->
+    <section id="paso-elegir">
+      <p class="pregunta">Toca la presentación de la tarima:</p>
+      <div class="presentaciones">
+        {% for p in presentaciones %}
+          <button class="presentacion" data-clave="{{ p.clave }}"
+                  data-nombre="{{ p.nombre }}" data-desc="{{ p.descripcion }}"
+                  data-max="{{ p.fardos_por_tarima }}">
+            <div class="nombre">{{ p.nombre }}</div>
+            <div class="desc">{{ p.descripcion }}</div>
+            <div class="cant">{{ p.fardos_por_tarima }} fardos por tarima</div>
+          </button>
+        {% endfor %}
+      </div>
+      <button id="btn-incompleta" class="secundario">Tarima incompleta</button>
+    </section>
+
+    <!-- Paso 2: confirmar -->
+    <section id="paso-confirmar" class="confirmar oculto">
+      <div class="resumen" id="conf-resumen"></div>
+      <div class="detalle" id="conf-detalle"></div>
+      <div class="fardos oculto" id="conf-fardos">
+        <button type="button" id="menos" aria-label="Menos fardos">−</button>
+        <output id="fardos-num">0</output>
+        <button type="button" id="mas" aria-label="Más fardos">+</button>
+      </div>
+      <button class="btn-grande" id="btn-imprimir">IMPRIMIR ETIQUETA</button>
+      <div class="fila-botones">
+        <button class="btn-texto" id="btn-cancelar">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- Paso 3: listo -->
+    <section id="paso-listo" class="confirmar hecho oculto">
+      <div class="check">✓</div>
+      <div class="folio" id="listo-folio"></div>
+      <div class="detalle" id="listo-detalle"></div>
+      <div class="error" id="listo-error"></div>
+      <button class="btn-grande" id="btn-listo">LISTO</button>
+      <div class="fila-botones">
+        <button class="btn-texto" id="btn-reimprimir">Reimprimir</button>
+        <button class="btn-texto peligro" id="btn-anular">Anular</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let seleccion = null;     // presentación elegida
+    let incompleta = false;
+    let fardos = 0;
+    let ultimo = null;        // folio de la última tarima
+    let regresoAuto = null;
+
+    function mostrar(paso) {
+      for (const id of ["paso-elegir", "paso-confirmar", "paso-listo"]) {
+        $(id).classList.toggle("oculto", id !== paso);
+      }
+    }
+
+    function inicio() {
+      clearTimeout(regresoAuto);
+      // Recarga para refrescar el conteo del turno
+      location.href = "/";
+    }
+
+    // Paso 1
+    $("btn-incompleta").onclick = () => {
+      incompleta = !incompleta;
+      $("btn-incompleta").classList.toggle("activo", incompleta);
+      $("btn-incompleta").textContent = incompleta
+        ? "Tarima incompleta (activado) - elige presentación"
+        : "Tarima incompleta";
+    };
+
+    document.querySelectorAll(".presentacion").forEach((b) => {
+      b.onclick = () => {
+        seleccion = { ...b.dataset, max: Number(b.dataset.max) };
+        fardos = incompleta ? seleccion.max - 1 : seleccion.max;
+        $("conf-resumen").textContent = seleccion.nombre + " · " + seleccion.desc;
+        $("conf-fardos").classList.toggle("oculto", !incompleta);
+        actualizarFardos();
+        mostrar("paso-confirmar");
+      };
+    });
+
+    // Paso 2
+    function actualizarFardos() {
+      $("fardos-num").textContent = fardos;
+      $("conf-detalle").textContent = incompleta
+        ? "Tarima INCOMPLETA: ¿cuántos fardos lleva?"
+        : "Tarima completa: " + seleccion.max + " fardos";
+    }
+    $("menos").onclick = () => { if (fardos > 1) { fardos--; actualizarFardos(); } };
+    $("mas").onclick = () => { if (fardos < seleccion.max) { fardos++; actualizarFardos(); } };
+    $("btn-cancelar").onclick = inicio;
+
+    $("btn-imprimir").onclick = async () => {
+      $("btn-imprimir").disabled = true;
+      $("btn-imprimir").textContent = "Imprimiendo…";
+      const cuerpo = { clave: seleccion.clave };
+      if (incompleta) cuerpo.fardos = fardos;
+      try {
+        const r = await fetch("/api/tarima", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cuerpo),
+        });
+        const datos = await r.json();
+        if (!r.ok) throw new Error(datos.error || "Error al registrar");
+        manejarImpresion(datos);
+      } catch (e) {
+        alert("No se pudo registrar: " + e.message);
+        $("btn-imprimir").disabled = false;
+        $("btn-imprimir").textContent = "IMPRIMIR ETIQUETA";
+      }
+    };
+
+    function manejarImpresion(datos) {
+      const t = datos.tarima;
+      if (datos.mensaje === "abrir_etiqueta") {
+        // Sin impresora de red: se abre la etiqueta para imprimirla
+        location.href = "/etiqueta/" + t.folio + "?auto=1";
+        return;
+      }
+      mostrarListo(t, datos.impreso ? "" : datos.mensaje);
+    }
+
+    // Paso 3
+    function mostrarListo(t, error) {
+      ultimo = t.folio;
+      $("listo-folio").textContent = t.folio;
+      $("listo-detalle").textContent =
+        t.presentacion + " · " + t.fardos + " fardos · " + t.libras + " lb";
+      $("listo-error").textContent = error || "";
+      mostrar("paso-listo");
+      regresoAuto = setTimeout(inicio, 30000);  // regresa solo en 30 s
+    }
+
+    $("btn-listo").onclick = inicio;
+
+    $("btn-reimprimir").onclick = async () => {
+      const r = await fetch("/api/reimprimir/" + ultimo, { method: "POST" });
+      const datos = await r.json();
+      if (datos.mensaje === "abrir_etiqueta") {
+        location.href = "/etiqueta/" + ultimo + "?auto=1";
+      } else {
+        $("listo-error").textContent = datos.impreso ? "Reimpresa" : datos.mensaje;
+      }
+    };
+
+    $("btn-anular").onclick = async () => {
+      if (!confirm("¿Anular la tarima " + ultimo + "?")) return;
+      await fetch("/api/anular/" + ultimo, { method: "POST" });
+      inicio();
+    };
+
+    // Si regresa de imprimir la etiqueta en el navegador, mostrar el paso 3
+    const params = new URLSearchParams(location.search);
+    if (params.get("ultimo")) {
+      history.replaceState(null, "", "/");  // limpia la dirección
+      mostrarListo({
+        folio: params.get("ultimo"),
+        presentacion: params.get("p") || "",
+        fardos: params.get("f") || "",
+        libras: params.get("l") || "",
+      });
+    }
+  </script>
+</body>
+</html>

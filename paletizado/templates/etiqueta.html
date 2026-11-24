@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Etiqueta {{ t.folio }}</title>
+  <style>
+    /* Etiqueta de 4 x 6 pulgadas */
+    @page { size: 4in 6in; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #ccc; font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .etiqueta {
+      width: 4in; height: 6in; margin: 16px auto; padding: 0.25in;
+      background: #fff; display: flex; flex-direction: column;
+    }
+    .linea { font-size: 16pt; font-weight: bold; }
+    .folio { font-size: 40pt; font-weight: 900; letter-spacing: 1px; line-height: 1.1; }
+    hr { border: none; border-top: 3px solid #000; margin: 8px 0; }
+    .pres { font-size: 22pt; font-weight: bold; }
+    .estado { font-size: 15pt; font-weight: bold; margin: 4px 0 8px; }
+    .estado.inc { background: #000; color: #fff; padding: 2px 6px; display: inline-block; }
+    table { font-size: 15pt; border-collapse: collapse; }
+    td { padding: 2px 10px 2px 0; }
+    td:first-child { font-weight: bold; }
+    .pie { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; }
+    .pie .fecha { font-size: 12pt; }
+    .pie img { width: 1.5in; height: 1.5in; }
+    .anulada { position: absolute; font-size: 40pt; color: red; transform: rotate(-30deg); margin: 2in 0 0 0.3in; }
+    .acciones { text-align: center; margin: 16px; }
+    .acciones button { font-size: 18px; padding: 14px 28px; margin: 4px; }
+    @media print {
+      body { background: #fff; }
+      .etiqueta { margin: 0; }
+      .acciones { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="etiqueta">
+    {% if t.estado == "ANULADA" %}<div class="anulada">ANULADA</div>{% endif %}
+    <div class="linea">{{ t.linea }}</div>
+    <div class="folio">{{ t.folio }}</div>
+    <hr>
+    <div class="pres">{{ t.presentacion }} · {{ t.descripcion }}</div>
+    {% if t.completa == "SI" %}
+      <div class="estado">TARIMA COMPLETA</div>
+    {% else %}
+      <div class="estado inc">TARIMA INCOMPLETA</div>
+    {% endif %}
+    <table>
+      <tr><td>Fardos</td><td>{{ t.fardos }}</td></tr>
+      <tr><td>Bolsas</td><td>{{ t.bolsas }}</td></tr>
+      <tr><td>Libras</td><td>{{ t.libras }}</td></tr>
+      <tr><td>Lote</td><td>{{ t.lote }}</td></tr>
+    </table>
+    <div class="pie">
+      <div class="fecha">{{ t.fecha }}<br>{{ t.hora }}<br>Turno {{ t.turno }}</div>
+      <img src="data:image/png;base64,{{ qr }}" alt="QR {{ t.folio }}">
+    </div>
+  </div>
+
+  <div class="acciones">
+    <button onclick="window.print()">Imprimir</button>
+    <button onclick="volver()">Volver</button>
+  </div>
+
+  <script>
+    function volver() {
+      const q = new URLSearchParams({
+        ultimo: {{ t.folio|tojson }}, p: {{ t.presentacion|tojson }},
+        f: {{ t.fardos|tojson }}, l: {{ t.libras|tojson }},
+      });
+      location.href = "/?" + q.toString();
+    }
+    {% if auto %}
+      window.onafterprint = volver;
+      window.onload = () => setTimeout(() => window.print(), 300);
+    {% endif %}
+  </script>
+</body>
+</html>
