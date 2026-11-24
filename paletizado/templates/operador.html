@@ -11,6 +11,13 @@
   <header class="barra">
     <h1>{{ linea }} · Operador</h1>
     <span class="dato">Turno <b>{{ resumen.turno }}</b></span>
+    {% if sheets_activo %}
+      {% if sheets_pendientes %}
+        <span class="dato alerta">Google Sheets: <b>{{ sheets_pendientes }} por subir</b> (sin internet)</span>
+      {% else %}
+        <span class="dato">Google Sheets: <b>al día</b></span>
+      {% endif %}
+    {% endif %}
   </header>
 
   <main>

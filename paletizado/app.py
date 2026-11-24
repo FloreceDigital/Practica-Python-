@@ -6,6 +6,9 @@ Pantallas:
   /operador   -> Operador de línea: define el lote y ve el resumen del turno.
   /excel      -> Descarga el Excel con todas las tarimas.
 
+Si SHEETS_URL está configurado en config.py, cada tarima también se manda
+a la hoja de Google Sheets de la empresa.
+
 Para arrancar:  python app.py
 Luego en la tablet abrir:  http://IP-DE-ESTA-COMPUTADORA:5000
 """
@@ -18,6 +21,7 @@ from flask import Flask, jsonify, redirect, render_template, request, send_file,
 import config
 import etiquetas
 import registro
+import sheets
 
 app = Flask(__name__)
 ARCHIVO_CORRIDA = os.path.join(config.CARPETA_DATOS, "corrida.json")
@@ -66,6 +70,8 @@ def operador():
         linea=config.LINEA,
         resumen=registro.resumen_turno(),
         ultimas=ultimas,
+        sheets_activo=sheets.activo(),
+        sheets_pendientes=sheets.pendientes(),
     )
 
 
@@ -113,6 +119,7 @@ def api_registrar():
             return jsonify(error="Cantidad de fardos no válida"), 400
 
     tarima = registro.registrar_tarima(presentacion, leer_lote() or "SIN LOTE", fardos)
+    sheets.agregar(tarima)
     return jsonify(tarima=tarima, **_imprimir(tarima))
 
 
@@ -127,10 +134,12 @@ def api_reimprimir(folio):
 @app.post("/api/anular/<folio>")
 def api_anular(folio):
     if registro.anular_tarima(folio):
+        sheets.anular(folio)
         return jsonify(ok=True)
     return jsonify(error="Tarima no encontrada"), 404
 
 
 if __name__ == "__main__":
+    sheets.iniciar_reintentos()
     # host="0.0.0.0" permite que la tablet se conecte por la red de la planta.
     app.run(host="0.0.0.0", port=5000, debug=False)

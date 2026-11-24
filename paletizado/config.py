@@ -46,6 +46,12 @@ IMPRESORA_IP = None        # ejemplo: "192.168.1.50"
 IMPRESORA_PUERTO = 9100    # puerto estándar de impresoras Zebra
 IMPRESORA_DPI = 203        # 203 o 300, según el modelo
 
+# --- Google Sheets ----------------------------------------------------------
+# URL de la "Aplicación web" del Apps Script (ver apps_script.gs y LEEME.md).
+# Si se deja en None, solo se guarda en el Excel/CSV local.
+SHEETS_URL = None          # ejemplo: "https://script.google.com/macros/s/XXXX/exec"
+SHEETS_CLAVE = "cambia-esta-clave"  # la misma palabra que en apps_script.gs
+
 # --- Archivos ---------------------------------------------------------------
 CARPETA_DATOS = "datos"
 ARCHIVO_CSV = "registro_tarimas.csv"     # respaldo que nunca se bloquea
