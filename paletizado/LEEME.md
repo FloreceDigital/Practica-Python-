@@ -56,9 +56,9 @@ y se sube sola a Sheets cuando regresa la conexión (se revisa cada minuto).
 En `/operador` se ve si hay tarimas "por subir".
 
 > La computadora de la planta necesita salida a internet hacia `script.google.com`.
-> Si la empresa usa Google Workspace, puede que TI deba permitir la "Aplicación web";
-> en ese caso elige "Cualquier usuario de [tu empresa]" solo si la computadora entra con una cuenta de la empresa,
-> si no, debe ser "Cualquier usuario" (la palabra secreta protege la hoja).
+> El acceso debe ser **"Cualquier usuario"**, porque la app no inicia sesión en Google;
+> la palabra secreta es la que impide que otros escriban en la hoja.
+> Si en Google Workspace de la empresa no aparece esa opción, TI la tiene bloqueada y hay que pedirles permiso.
 
 ## Datos
 Se guardan en la carpeta `datos/`:
