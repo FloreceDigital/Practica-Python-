@@ -1,35 +1,30 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tarimas - {{ linea }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
-</head>
-<body>
-  <header class="barra">
-    <h1>{{ linea }}</h1>
-    {% if lote %}
-      <span class="dato">Lote <b>{{ lote }}</b></span>
-    {% else %}
-      <span class="dato alerta">Lote <b>sin definir</b></span>
-    {% endif %}
-    <span class="dato">Turno {{ resumen.turno }}: <b>{{ resumen.tarimas }}</b> tarimas</span>
-  </header>
-
-  <main>
+{% extends "base.html" %}
+{% block titulo %}Tarimas - {{ linea.nombre }}{% endblock %}
+{% block barra %}
+  <h1>{{ linea.nombre }}</h1>
+  {% if linea.lote_actual %}
+    <span class="dato">Lote <b>{{ linea.lote_actual }}</b></span>
+  {% else %}
+    <span class="dato alerta">Lote <b>sin definir</b></span>
+  {% endif %}
+  <span class="dato">Turno {{ turno }}: <b>{{ total }}</b> tarimas</span>
+  {% if varias_lineas %}<a class="cambiar" href="/">Cambiar línea</a>{% endif %}
+{% endblock %}
+{% block contenido %}
     <!-- Paso 1: elegir presentación -->
     <section id="paso-elegir">
       <p class="pregunta">Toca la presentación de la tarima:</p>
       <div class="presentaciones">
         {% for p in presentaciones %}
-          <button class="presentacion" data-clave="{{ p.clave }}"
+          <button class="presentacion" data-id="{{ p.id }}"
                   data-nombre="{{ p.nombre }}" data-desc="{{ p.descripcion }}"
                   data-max="{{ p.fardos_por_tarima }}">
             <div class="nombre">{{ p.nombre }}</div>
             <div class="desc">{{ p.descripcion }}</div>
             <div class="cant">{{ p.fardos_por_tarima }} fardos por tarima</div>
           </button>
+        {% else %}
+          <p>Esta línea no tiene presentaciones asignadas. Dalas de alta en /admin.</p>
         {% endfor %}
       </div>
       <button id="btn-incompleta" class="secundario">Tarima incompleta</button>
@@ -62,10 +57,14 @@
         <button class="btn-texto peligro" id="btn-anular">Anular</button>
       </div>
     </section>
-  </main>
-
+{% endblock %}
+{% block scripts %}
   <script>
     const $ = (id) => document.getElementById(id);
+    const LINEA = {{ linea.codigo|tojson }};
+    const params = new URLSearchParams(location.search);
+    // Si la tablet atiende varias líneas, al terminar regresa a elegir línea.
+    const VOLVER = params.get("volver") === "/" ? "/" : "/linea/" + LINEA;
     let seleccion = null;     // presentación elegida
     let incompleta = false;
     let fardos = 0;
@@ -81,7 +80,7 @@
     function inicio() {
       clearTimeout(regresoAuto);
       // Recarga para refrescar el conteo del turno
-      location.href = "/";
+      location.href = VOLVER;
     }
 
     // Paso 1
@@ -118,7 +117,7 @@
     $("btn-imprimir").onclick = async () => {
       $("btn-imprimir").disabled = true;
       $("btn-imprimir").textContent = "Imprimiendo…";
-      const cuerpo = { clave: seleccion.clave };
+      const cuerpo = { linea: LINEA, presentacion_id: Number(seleccion.id) };
       if (incompleta) cuerpo.fardos = fardos;
       try {
         const r = await fetch("/api/tarima", {
@@ -140,10 +139,15 @@
       const t = datos.tarima;
       if (datos.mensaje === "abrir_etiqueta") {
         // Sin impresora de red: se abre la etiqueta para imprimirla
-        location.href = "/etiqueta/" + t.folio + "?auto=1";
+        abrirEtiqueta(t.folio);
         return;
       }
       mostrarListo(t, datos.impreso ? "" : datos.mensaje);
+    }
+
+    function abrirEtiqueta(folio) {
+      const q = new URLSearchParams({ auto: "1", volver: VOLVER });
+      location.href = "/etiqueta/" + encodeURIComponent(folio) + "?" + q;
     }
 
     // Paso 3
@@ -160,10 +164,10 @@
     $("btn-listo").onclick = inicio;
 
     $("btn-reimprimir").onclick = async () => {
-      const r = await fetch("/api/reimprimir/" + ultimo, { method: "POST" });
+      const r = await fetch("/api/reimprimir/" + encodeURIComponent(ultimo), { method: "POST" });
       const datos = await r.json();
       if (datos.mensaje === "abrir_etiqueta") {
-        location.href = "/etiqueta/" + ultimo + "?auto=1";
+        abrirEtiqueta(ultimo);
       } else {
         $("listo-error").textContent = datos.impreso ? "Reimpresa" : datos.mensaje;
       }
@@ -171,14 +175,13 @@
 
     $("btn-anular").onclick = async () => {
       if (!confirm("¿Anular la tarima " + ultimo + "?")) return;
-      await fetch("/api/anular/" + ultimo, { method: "POST" });
+      await fetch("/api/anular/" + encodeURIComponent(ultimo), { method: "POST" });
       inicio();
     };
 
     // Si regresa de imprimir la etiqueta en el navegador, mostrar el paso 3
-    const params = new URLSearchParams(location.search);
     if (params.get("ultimo")) {
-      history.replaceState(null, "", "/");  // limpia la dirección
+      history.replaceState(null, "", location.pathname + (VOLVER === "/" ? "?volver=/" : ""));
       mostrarListo({
         folio: params.get("ultimo"),
         presentacion: params.get("p") || "",
@@ -187,5 +190,4 @@
       });
     }
   </script>
-</body>
-</html>
+{% endblock %}

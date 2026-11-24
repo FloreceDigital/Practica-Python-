@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}Tarimas - Elegir línea{% endblock %}
+{% block barra %}
+  <h1>Registro de tarimas</h1>
+  <span class="dato">Turno <b>{{ turno }}</b></span>
+{% endblock %}
+{% block contenido %}
+  <p class="pregunta">¿De qué línea es la tarima?</p>
+  <div class="presentaciones lineas">
+    {% for l in lineas %}
+      <a class="presentacion" href="{{ url_for('montacargas', codigo=l.codigo, volver='/') }}">
+        <div class="nombre">{{ l.nombre }}</div>
+        <div class="cant"><span>{{ totales.get(l.id, {}).get('tarimas', 0) }} tarimas este turno</span>
+          {% if l.lote_actual %}<br><span>Lote {{ l.lote_actual }}</span>{% endif %}</div>
+      </a>
+    {% else %}
+      <p>No hay líneas dadas de alta. Entra a <a href="/admin">/admin</a>.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

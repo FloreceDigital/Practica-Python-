@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block meta %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block titulo %}Resumen de líneas{% endblock %}
+{% block barra %}
+  <h1>Resumen de líneas</h1>
+  <span class="dato">Turno <b>{{ turno }}</b></span>
+  {% include "_estado_sheets.html" %}
+  <a class="cambiar" href="/admin">Administrar</a>
+{% endblock %}
+{% block contenido %}
+  <div class="tarjetas">
+    <div class="tarjeta"><div class="num">{{ general.tarimas }}</div><div class="lbl">Tarimas del turno (todas)</div></div>
+    <div class="tarjeta"><div class="num">{{ "{:,}".format(general.fardos) }}</div><div class="lbl">Fardos</div></div>
+    <div class="tarjeta"><div class="num">{{ "{:,}".format(general.libras) }}</div><div class="lbl">Libras</div></div>
+  </div>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Línea</th><th>Lote</th><th>Tarimas</th><th>Fardos</th><th>Libras</th><th>Impresora</th><th></th></tr></thead>
+      <tbody>
+        {% for l in lineas %}
+          {% set t = totales.get(l.id, {'tarimas': 0, 'fardos': 0, 'libras': 0}) %}
+          <tr>
+            <td><b>{{ l.nombre }}</b></td>
+            <td>{{ l.lote_actual or "—" }}</td>
+            <td>{{ t.tarimas }}</td><td>{{ "{:,}".format(t.fardos) }}</td><td>{{ "{:,}".format(t.libras) }}</td>
+            <td>{{ l.impresora_ip or "navegador" }}</td>
+            <td><a href="/operador/{{ l.codigo }}">operador</a> · <a href="/linea/{{ l.codigo }}">tablet</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Descargar Excel</h2>
+  <form class="filtros" action="/excel">
+    <label>Desde <input type="date" name="desde" value="{{ hoy }}" required></label>
+    <label>Hasta <input type="date" name="hasta" value="{{ hoy }}" required></label>
+    <label>Línea
+      <select name="linea">
+        <option value="">Todas</option>
+        {% for l in lineas %}<option value="{{ l.codigo }}">{{ l.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Descargar</button>
+  </form>
+{% endblock %}

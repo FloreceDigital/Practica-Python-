@@ -1,57 +1,25 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="30">
-  <title>Operador - {{ linea }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
-</head>
-<body>
-  <header class="barra">
-    <h1>{{ linea }} · Operador</h1>
-    <span class="dato">Turno <b>{{ resumen.turno }}</b></span>
-    {% if sheets_activo %}
-      {% if sheets_pendientes %}
-        <span class="dato alerta">Google Sheets: <b>{{ sheets_pendientes }} por subir</b> (sin internet)</span>
-      {% else %}
-        <span class="dato">Google Sheets: <b>al día</b></span>
-      {% endif %}
-    {% endif %}
-  </header>
+{% extends "base.html" %}
+{% block meta %}<meta http-equiv="refresh" content="30">{% endblock %}
+{% block titulo %}Operador - {{ linea.nombre }}{% endblock %}
+{% block barra %}
+  <h1>{{ linea.nombre }} · Operador</h1>
+  <span class="dato">Turno <b>{{ turno }}</b></span>
+  {% include "_estado_sheets.html" %}
+  <a class="cambiar" href="/resumen">Todas las líneas</a>
+{% endblock %}
+{% block contenido %}
+  <div class="tarjetas">
+    <div class="tarjeta"><div class="num">{{ resumen.tarimas }}</div><div class="lbl">Tarimas del turno</div></div>
+    <div class="tarjeta"><div class="num">{{ "{:,}".format(resumen.fardos) }}</div><div class="lbl">Fardos</div></div>
+    <div class="tarjeta"><div class="num">{{ "{:,}".format(resumen.libras) }}</div><div class="lbl">Libras</div></div>
+  </div>
 
-  <main>
-    <div class="tarjetas">
-      <div class="tarjeta"><div class="num">{{ resumen.tarimas }}</div><div class="lbl">Tarimas del turno</div></div>
-      <div class="tarjeta"><div class="num">{{ resumen.fardos }}</div><div class="lbl">Fardos</div></div>
-      <div class="tarjeta"><div class="num">{{ "{:,}".format(resumen.libras) }}</div><div class="lbl">Libras</div></div>
-    </div>
+  <form class="lote" method="post">
+    <input name="lote" value="{{ linea.lote_actual }}" placeholder="Lote de la corrida" aria-label="Lote de la corrida">
+    <button type="submit">Guardar lote</button>
+    <a class="boton" href="/excel?linea={{ linea.codigo }}">Excel de hoy</a>
+  </form>
 
-    <form class="lote" method="post">
-      <input name="lote" value="{{ lote }}" placeholder="Lote de la corrida" aria-label="Lote de la corrida">
-      <button type="submit">Guardar lote</button>
-      <a class="boton" href="/excel">Descargar Excel</a>
-    </form>
-
-    <div class="tabla-envoltura">
-      <table>
-        <thead>
-          <tr><th>Folio</th><th>Fecha</th><th>Hora</th><th>Turno</th><th>Presentación</th><th>Lote</th><th>Fardos</th><th>Libras</th><th>Estado</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for t in ultimas %}
-            <tr class="{{ 'anulada' if t.estado == 'ANULADA' }}">
-              <td>{{ t.folio }}</td><td>{{ t.fecha }}</td><td>{{ t.hora }}</td><td>{{ t.turno }}</td>
-              <td>{{ t.presentacion }}</td><td>{{ t.lote }}</td><td>{{ t.fardos }}</td>
-              <td>{{ t.libras }}</td><td>{{ t.estado }}{% if t.completa == 'NO' %} · incompleta{% endif %}</td>
-              <td><a href="/etiqueta/{{ t.folio }}" style="color:inherit">etiqueta</a></td>
-            </tr>
-          {% else %}
-            <tr><td colspan="10">Aún no hay tarimas registradas.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </main>
-</body>
-</html>
+  {% set mostrar_linea = False %}
+  {% include "_tabla_tarimas.html" %}
+{% endblock %}

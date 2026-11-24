@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}{{ "Editar" if linea else "Nueva" }} línea{% endblock %}
+{% block barra %}<h1>{{ "Editar " ~ linea.nombre if linea else "Nueva línea" }}</h1><a class="cambiar" href="/admin">Volver</a>{% endblock %}
+{% block contenido %}
+  <form class="formulario" method="post">
+    <label>Código (va en el folio, ej. L4)
+      <input name="codigo" value="{{ linea.codigo if linea }}" required maxlength="10" pattern="[A-Za-z0-9]+"></label>
+    <label>Nombre
+      <input name="nombre" value="{{ linea.nombre if linea }}" required placeholder="Línea 4"></label>
+    <label>IP de la impresora de etiquetas (vacío = imprimir desde el navegador)
+      <input name="impresora_ip" value="{{ linea.impresora_ip or '' if linea }}" placeholder="192.168.1.50"></label>
+    <label class="check"><input type="checkbox" name="activa" {{ "checked" if not linea or linea.activa }}> Activa</label>
+    {% if linea %}<p class="nota">Cambiar el código no modifica los folios ya impresos; los nuevos usarán el código nuevo.</p>{% endif %}
+    <button type="submit">Guardar</button>
+  </form>
+{% endblock %}

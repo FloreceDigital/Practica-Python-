@@ -3,7 +3,7 @@ Genera e imprime la etiqueta (papeleta) de cada tarima.
 
 Dos formas de imprimir:
 1. Impresora de etiquetas con red (Zebra o compatible ZPL): se manda directo,
-   sin ventanas. Se activa poniendo IMPRESORA_IP en config.py.
+   sin ventanas. La IP de cada línea se captura en /admin.
 2. Cualquier impresora: la tablet abre la etiqueta en el navegador y se imprime.
 """
 
@@ -64,13 +64,13 @@ def zpl(tarima):
 ^XZ"""
 
 
-def imprimir_directo(tarima):
+def imprimir_directo(tarima, impresora_ip):
     """Manda la etiqueta a la impresora de red. Regresa (ok, mensaje)."""
-    if not config.IMPRESORA_IP:
+    if not impresora_ip:
         return False, "No hay impresora de red configurada"
     try:
         with socket.create_connection(
-            (config.IMPRESORA_IP, config.IMPRESORA_PUERTO), timeout=5
+            (impresora_ip, config.IMPRESORA_PUERTO), timeout=5
         ) as conexion:
             conexion.sendall(zpl(tarima).encode("utf-8"))
         return True, "Etiqueta enviada a la impresora"

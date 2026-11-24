@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Administración{% endblock %}
+{% block barra %}
+  <h1>Administración</h1>
+  <a class="cambiar" href="/resumen">Resumen</a>
+{% endblock %}
+{% block contenido %}
+  {% if mensaje %}<p class="aviso">{{ mensaje }}</p>{% endif %}
+
+  <div class="titulo-seccion"><h2>Líneas</h2><a class="boton" href="/admin/linea">+ Nueva línea</a></div>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Impresora</th><th>Último folio</th><th>Presentaciones</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        {% for l in lineas %}
+          <tr class="{{ 'inactiva' if not l.activa }}">
+            <td>{{ l.codigo }}</td><td>{{ l.nombre }}</td><td>{{ l.impresora_ip or "navegador" }}</td>
+            <td>{{ l.ultimo_folio }}</td><td>{{ asignaciones.get(l.id, [])|length }}</td>
+            <td>{{ "Activa" if l.activa else "Inactiva" }}</td>
+            <td><a href="/admin/linea/{{ l.id }}">editar</a></td>
+          </tr>
+        {% else %}<tr><td colspan="7">Sin líneas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="titulo-seccion"><h2>Presentaciones</h2><a class="boton" href="/admin/presentacion">+ Nueva presentación</a></div>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Clave</th><th>Nombre</th><th>Descripción</th><th>lb/bolsa</th><th>Bolsas/fardo</th><th>Fardos/tarima</th><th>Líneas</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        {% for p in presentaciones %}
+          <tr class="{{ 'inactiva' if not p.activa }}">
+            <td>{{ p.clave }}</td><td>{{ p.nombre }}</td><td>{{ p.descripcion }}</td>
+            <td>{{ p.libras_por_bolsa }}</td><td>{{ p.bolsas_por_fardo }}</td><td>{{ p.fardos_por_tarima }}</td>
+            <td>{% for l in lineas if p.id in asignaciones.get(l.id, []) %}{{ l.codigo }}{{ ", " if not loop.last }}{% else %}—{% endfor %}</td>
+            <td>{{ "Activa" if p.activa else "Inactiva" }}</td>
+            <td><a href="/admin/presentacion/{{ p.id }}">editar</a></td>
+          </tr>
+        {% else %}<tr><td colspan="9">Sin presentaciones.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

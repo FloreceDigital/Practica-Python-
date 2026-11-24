@@ -66,11 +66,13 @@
 
   <script>
     function volver() {
+      const volver = {{ volver|tojson }};
       const q = new URLSearchParams({
         ultimo: {{ t.folio|tojson }}, p: {{ t.presentacion|tojson }},
         f: {{ t.fardos|tojson }}, l: {{ t.libras|tojson }},
       });
-      location.href = "/?" + q.toString();
+      if (volver === "/") q.set("volver", "/");
+      location.href = "/linea/" + encodeURIComponent({{ t.linea_codigo|tojson }}) + "?" + q.toString();
     }
     {% if auto %}
       window.onafterprint = volver;

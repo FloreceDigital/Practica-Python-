@@ -152,3 +152,39 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--borde); white-space: nowrap; }
 th { color: var(--tenue); font-weight: 600; }
 tr.anulada td { color: var(--rojo); text-decoration: line-through; }
+
+/* --- Varias líneas y administración --- */
+a { color: inherit; }
+a.presentacion { text-decoration: none; color: var(--texto); display: block; }
+.lineas .nombre { font-size: 2.4rem; }
+.barra .cambiar {
+  margin-left: auto; color: var(--texto); text-decoration: none;
+  border: 2px solid var(--borde); border-radius: 10px; padding: 8px 14px;
+}
+h2 { font-size: 1.3rem; margin: 28px 0 12px; }
+.titulo-seccion { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.titulo-seccion h2 { margin: 28px 0 12px; }
+.aviso { background: var(--panel); border-left: 4px solid var(--amarillo); padding: 12px 16px; border-radius: 6px; }
+tr.inactiva td { color: var(--tenue); }
+
+.formulario, .filtros { display: grid; gap: 16px; max-width: 640px; }
+.filtros { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); max-width: none; align-items: end; }
+.formulario label, .filtros label { display: grid; gap: 6px; color: var(--tenue); }
+.formulario input:not([type=checkbox]), .filtros input, .filtros select {
+  padding: 12px; font-size: 1.1rem;
+  background: var(--panel); color: var(--texto);
+  border: 2px solid var(--borde); border-radius: 10px;
+}
+.fila-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.formulario fieldset { border: 2px solid var(--borde); border-radius: 10px; padding: 12px 16px; display: grid; gap: 10px; }
+.formulario legend { color: var(--tenue); padding: 0 6px; }
+.formulario label.check, label.check { display: flex; align-items: center; gap: 10px; color: var(--texto); }
+label.check input { width: 22px; height: 22px; }
+.formulario button, .filtros button {
+  padding: 14px 22px; font-size: 1.1rem; font-weight: 700;
+  border: none; border-radius: var(--radio); background: var(--verde); color: #fff;
+}
+.nota { color: var(--tenue); margin: 0; }
+.formulario input:not([type=checkbox]) { width: 100%; min-width: 0; }
+.fila-campos label { min-width: 0; }
+.lineas .cant span { white-space: nowrap; }
