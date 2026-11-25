@@ -35,6 +35,10 @@ Una sola app y una sola base de datos atienden las 6 líneas.
 
 ## Instalación
 
+**En Windows (la PC de la planta):** doble clic en `instalacion/instalar.cmd`. Instala todo y deja la app arrancando sola. Ver `instalacion/GUIA_WINDOWS.md`.
+
+Instalación manual (Linux o para desarrollo):
+
 ### 1. PostgreSQL
 Lo ideal es que TI lo instale en un servidor de la empresa. Para una prueba se puede instalar en la misma
 computadora (en Windows: instalador de postgresql.org; en Linux: `sudo apt install postgresql`).
@@ -62,10 +66,11 @@ Si usaban la versión anterior con CSV, pasar esos registros:
 ```bash
 python init_db.py --importar datos/registro_tarimas.csv
 ```
-Arrancar:
+Arrancar (uso diario):
 ```bash
-python app.py
+python servidor.py
 ```
+(`python app.py` es el servidor de pruebas.)
 En cada tablet abrir `http://IP-DEL-SERVIDOR:5000/linea/L4` (o la línea que corresponda) y guardarla como acceso directo.
 
 ### 3. Dar de alta las presentaciones
