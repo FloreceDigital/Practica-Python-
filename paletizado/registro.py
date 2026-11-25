@@ -442,13 +442,12 @@ def resumen_turno():
 
 # --- Resumen por turno -------------------------------------------------------
 
-LB_TON_CORTA = 2000        # tonelada corta (EE. UU.)
-LB_TON_METRICA = 2204.62   # tonelada métrica
+LB_TON_METRICA = 2204.62   # libras en una tonelada métrica
 
 ENCABEZADOS_TURNO = [
     ("fecha", "Fecha"), ("turno", "Turno"), ("linea", "Línea"), ("tarimas", "Tarimas"),
     ("incompletas", "Tarimas incompletas"), ("fardos", "Fardos"), ("libras", "Libras"),
-    ("ton_cortas", "Toneladas cortas (2,000 lb)"), ("ton_metricas", "Toneladas métricas"),
+    ("ton_metricas", "Toneladas métricas"),
     ("anuladas", "Tarimas anuladas"),
 ]
 
@@ -482,7 +481,6 @@ def resumen_por_turno(desde, hasta, linea_codigo=None):
             "fecha": f["fecha_turno"].strftime("%Y-%m-%d"), "turno": f["turno"], "linea": f["linea"],
             "tarimas": f["tarimas"], "incompletas": f["incompletas"], "fardos": int(f["fardos"]),
             "libras": libras,
-            "ton_cortas": round(float(libras) / LB_TON_CORTA, 2),
             "ton_metricas": round(float(libras) / LB_TON_METRICA, 2),
             "anuladas": f["anuladas"],
         })

@@ -62,14 +62,14 @@
   <div class="tabla-envoltura">
     <table>
       <thead><tr><th>Fecha</th><th>Turno</th><th>Tarimas</th><th>Incompletas</th><th>Fardos</th><th>Libras</th>
-        <th>Ton. cortas (2,000 lb)</th><th>Ton. métricas</th><th>Anuladas</th></tr></thead>
+        <th>Toneladas métricas</th><th>Anuladas</th></tr></thead>
       <tbody>
         {% for r in turnos %}
           <tr><td>{{ r.fecha }}</td><td>{{ r.turno }}</td><td><b>{{ r.tarimas }}</b></td><td>{{ r.incompletas }}</td>
             <td>{{ "{:,}".format(r.fardos) }}</td><td>{{ "{:,}".format(r.libras) }}</td>
-            <td><b>{{ "{:,.2f}".format(r.ton_cortas) }}</b></td><td>{{ "{:,.2f}".format(r.ton_metricas) }}</td>
+            <td><b>{{ "{:,.2f}".format(r.ton_metricas) }}</b></td>
             <td>{{ r.anuladas }}</td></tr>
-        {% else %}<tr><td colspan="9">Sin tarimas en los últimos 7 días.</td></tr>{% endfor %}
+        {% else %}<tr><td colspan="8">Sin tarimas en los últimos 7 días.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>
