@@ -20,10 +20,10 @@
 
   <form class="formulario corrida" method="post">
     <label>Producto que se está corriendo <span class="nota">(la tablet del montacargas solo muestra este)</span>
-      <select name="presentacion_activa">
+      <select name="presentacion_activa" id="sel-producto">
         <option value="">Sin indicar (el montacarguista elige)</option>
         {% for p in presentaciones %}
-          <option value="{{ p.id }}" {{ "selected" if p.id == linea.presentacion_activa_id }}>{{ p.nombre }} · {{ {"fardo": "Fardo", "caja": "Caja", "bin": "Bin"}[p.unidad] }} · {{ p.bolsas_por_fardo }} bolsas de {{ p.libras_por_bolsa }} lb</option>
+          <option value="{{ p.id }}" data-unidad="{{ p.unidad }}" {{ "selected" if p.id == linea.presentacion_activa_id }}>{{ p.nombre }} · {{ {"fardo": "Fardo", "caja": "Caja", "bin": "Bin"}[p.unidad] }} · {{ p.bolsas_por_fardo }} bolsas de {{ p.libras_por_bolsa }} lb</option>
         {% endfor %}
       </select></label>
     <div class="fila-campos">
@@ -31,14 +31,11 @@
         <input name="color" value="{{ linea.color_actual }}" inputmode="numeric" placeholder="ej. 985"></label>
       <label>Lot Packaging Material / Bag film
         <input name="lote_film" value="{{ linea.lote_film }}" list="lotes-film" inputmode="numeric"></label>
-      <label>Lot Packaging Material / Bale
+      {# Fardo usa lote de Bale; caja y bin usan lote de caja. Solo se ve el que aplica. #}
+      <label id="campo-bale">Lot Packaging Material / Bale
         <input name="lote_bale" value="{{ linea.lote_bale }}" list="lotes-bale" inputmode="numeric"></label>
-      {% if usa_caja %}
-      <label>Lot Packaging Material / Box (caja)
+      <label id="campo-caja">Lot Packaging Material / Box (caja)
         <input name="lote_caja" value="{{ linea.lote_caja }}" inputmode="numeric"></label>
-      {% else %}
-      <input type="hidden" name="lote_caja" value="{{ linea.lote_caja }}">
-      {% endif %}
     </div>
     <datalist id="lotes-film">{% for v in lotes_film %}<option value="{{ v }}">{% endfor %}</datalist>
     <datalist id="lotes-bale">{% for v in lotes_bale %}<option value="{{ v }}">{% endfor %}</datalist>
@@ -93,4 +90,22 @@
   </div>
   {% set mostrar_linea = False %}
   {% include "_tabla_tarimas.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+  // Muestra solo el lote de material que usa el producto que se está corriendo
+  // (si no hay producto elegido, los que usen los productos de la línea).
+  (() => {
+    const sel = document.getElementById("sel-producto");
+    const todas = [...sel.options].filter((o) => o.value).map((o) => o.dataset.unidad);
+    function actualizar() {
+      const elegida = sel.selectedOptions[0] && sel.selectedOptions[0].dataset.unidad;
+      const unidades = elegida ? [elegida] : todas;
+      document.getElementById("campo-bale").classList.toggle("oculto", !unidades.includes("fardo"));
+      document.getElementById("campo-caja").classList.toggle("oculto", !unidades.some((u) => u === "caja" || u === "bin"));
+    }
+    sel.addEventListener("change", actualizar);
+    actualizar();
+  })();
+</script>
 {% endblock %}
