@@ -45,11 +45,14 @@ def montacargas(codigo):
         abort(404)
     turno, totales = registro.resumen_turno()
     ahora = datetime.now()
+    presentaciones = registro.presentaciones_de_linea(linea["id"])
     return render_template(
         "montacargas.html",
         linea=linea,
         lote=registro.lote_de_linea(linea, ahora),
-        presentaciones=registro.presentaciones_de_linea(linea["id"]),
+        presentaciones=presentaciones,
+        # El producto que el operador indicó que se está corriendo (si no, la tablet muestra todos)
+        activa=next((p for p in presentaciones if p["id"] == linea["presentacion_activa_id"]), None),
         montacarguistas=[p["nombre"] for p in registro.personas("montacargas")],
         turno=turno,
         clave_turno=f"{registro.inicio_turno(ahora):%Y-%m-%d}-{turno}",
@@ -76,6 +79,7 @@ def operador(codigo):
         linea=linea,
         lote_auto=registro.lote_automatico(datetime.now()),
         usa_caja=any(p["unidad"] in ("caja", "bin") for p in registro.presentaciones_de_linea(linea["id"])),
+        presentaciones=registro.presentaciones_de_linea(linea["id"]),
         lote=registro.lote_de_linea(linea),
         guardado=request.args.get("guardado") == "1",
         operadores=[p["nombre"] for p in registro.personas("operador")],
@@ -161,6 +165,11 @@ def _imprimir(tarima):
 def api_registrar():
     datos = request.get_json(force=True)
     fardos = datos.get("fardos")
+    # Aviso de posible tarima repetida: si se imprimió otra hace menos de 60 s, se pide confirmar
+    if not datos.get("confirmar_duplicado"):
+        reciente = registro.ultima_reciente(str(datos.get("linea", "")), 60)
+        if reciente:
+            return jsonify(duplicado=True, **reciente), 409
     try:
         tarima = registro.registrar_tarima(
             datos.get("linea", ""),

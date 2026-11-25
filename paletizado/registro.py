@@ -139,7 +139,7 @@ def guardar_corrida(codigo, datos, estibadores):
         con.execute(
             """UPDATE lineas SET lote_actual = %s, color_actual = %s, lote_film = %s,
                    lote_bale = %s, lote_caja = %s, operador_produccion = %s, supervisor = %s,
-                   estibadores = %s
+                   estibadores = %s, presentacion_activa_id = %s
                WHERE codigo = %s""",
             (
                 datos.get("lote_manual", "").strip().upper(),
@@ -150,6 +150,7 @@ def guardar_corrida(codigo, datos, estibadores):
                 datos.get("operador_produccion", "").strip(),
                 datos.get("supervisor", "").strip(),
                 ", ".join(e.strip() for e in estibadores if e.strip()),
+                int(datos["presentacion_activa"]) if str(datos.get("presentacion_activa", "")).isdigit() else None,
                 codigo,
             ),
         )
@@ -486,6 +487,22 @@ def corregir_tarimas(folios, cambios, motivo, usuario=""):
                     (Jsonb({"accion": "actualizar", "tarima": {c: tarima[c] for c in COLUMNAS}}),),
                 )
     return corregidas
+
+
+def ultima_reciente(codigo_linea, segundos=60):
+    """Si en la línea se registró una tarima hace menos de `segundos`, regresa su número
+    y hace cuántos segundos fue. Sirve para avisar en la tablet de una posible repetida."""
+    with db.conectar() as con:
+        fila = con.execute(
+            """SELECT t.numero_pallet, extract(epoch FROM (now()::timestamp - t.fecha_hora)) AS hace
+               FROM tarimas t JOIN lineas l ON l.id = t.linea_id
+               WHERE l.codigo = %s AND t.estado = 'OK'
+               ORDER BY t.id DESC LIMIT 1""",
+            (codigo_linea,),
+        ).fetchone()
+    if fila and 0 <= fila["hace"] < segundos:
+        return {"numero_pallet": fila["numero_pallet"], "segundos": int(fila["hace"])}
+    return None
 
 
 def buscar_tarima(folio):

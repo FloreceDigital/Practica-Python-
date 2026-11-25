@@ -1,18 +1,31 @@
 {% extends "base.html" %}
 {% block titulo %}Tarimas - {{ linea.nombre }}{% endblock %}
 {% block barra %}
+  {# Pantalla del montacarguista: solo lo que necesita quien pone etiquetas #}
   <h1>{{ linea.nombre }}</h1>
-  <span class="dato">Lote <b>{{ lote }}</b></span>
-  {% if linea.color_actual %}
-    <span class="dato">Color <b>{{ linea.color_actual }}</b></span>
-  {% else %}
-    <span class="dato alerta">Color <b>sin capturar</b></span>
-  {% endif %}
   <span class="dato">Turno {{ turno }}: <b>{{ total }}</b> tarimas</span>
   <button class="cambiar" id="btn-quien" type="button">Montacargas: <b id="quien-nombre">—</b></button>
   {% if varias_lineas %}<a class="cambiar" href="/">Cambiar línea</a>{% endif %}
 {% endblock %}
 {% block contenido %}
+    {% macro tarjeta(p, activo) %}
+      {% set es_bin = p.unidad == "bin" %}
+      {% set palabra = "bolsas" if es_bin else ("cajas" if p.unidad == "caja" else "fardos") %}
+      {% set tipo = {"fardo": "Fardo", "caja": "Caja", "bin": "Bin"}[p.unidad] %}
+      {% set lb = p.fardos_por_tarima * p.bolsas_por_fardo * p.libras_por_bolsa %}
+      <button class="presentacion tipo-{{ p.unidad }}{{ ' activo' if activo }}" data-id="{{ p.id }}"
+              data-unidad="{{ p.unidad }}" data-nombre="{{ p.nombre }}"
+              data-desc="{{ tipo }} · {{ p.bolsas_por_fardo }} bolsas de {{ p.libras_por_bolsa }} lb"
+              data-max="{{ p.bolsas_por_fardo if es_bin else p.fardos_por_tarima }}"
+              data-paso="{{ 10 if es_bin else 1 }}" data-palabra="{{ palabra }}">
+        {% if activo %}<div class="etq">Se está corriendo</div>{% endif %}
+        <div class="nombre">{{ p.nombre }}</div>
+        <div class="desc">{{ tipo }} · {{ p.bolsas_por_fardo }} bolsas de {{ p.libras_por_bolsa }} lb</div>
+        <div class="cant">{% if es_bin %}{{ p.bolsas_por_fardo }} bolsas{% else %}{{ p.fardos_por_tarima }} {{ palabra }} por tarima{% endif %}
+          · {{ "{:,.0f}".format(lb) }} lb</div>
+      </button>
+    {% endmacro %}
+
     <!-- Paso 0: quién maneja el montacargas (una vez por turno) -->
     <section id="paso-quien" class="oculto">
       <p class="pregunta">¿Quién maneja el montacargas en este turno?</p>
@@ -28,49 +41,60 @@
       </form>
     </section>
 
-    <!-- Paso 1: elegir presentación -->
+    <!-- Paso 1: el producto. Si el operador ya indicó cuál se corre, solo se muestra ese. -->
     <section id="paso-elegir">
-      <p class="pregunta">Toca la presentación de la tarima:</p>
-      <div class="presentaciones">
-        {% for p in presentaciones %}
-          {% set es_bin = p.unidad == "bin" %}
-          {% set palabra = "cajas" if p.unidad == "caja" else "fardos" %}
-          <button class="presentacion" data-id="{{ p.id }}" data-unidad="{{ p.unidad }}"
-                  data-nombre="{{ p.nombre }}" data-desc="{{ p.descripcion }}"
-                  data-max="{{ p.bolsas_por_fardo if es_bin else p.fardos_por_tarima }}"
-                  data-paso="{{ 10 if es_bin else 1 }}" data-palabra="{{ 'bolsas' if es_bin else palabra }}">
-            <div class="nombre">{{ p.nombre }}</div>
-            <div class="desc">{{ p.descripcion }}</div>
-            {% set lb = p.fardos_por_tarima * p.bolsas_por_fardo * p.libras_por_bolsa %}
-            <div class="cant">{% if es_bin %}Bin de {{ p.bolsas_por_fardo }} bolsas{% else %}{{ p.fardos_por_tarima }} {{ palabra }} por tarima{% endif %}
-              · {{ "{:,.0f}".format(lb) }} lb</div>
-          </button>
-        {% else %}
-          <p>Esta línea no tiene presentaciones asignadas. Dalas de alta en /admin.</p>
-        {% endfor %}
-      </div>
-      <button id="btn-incompleta" class="secundario">Tarima incompleta</button>
+      {% if activa %}
+        <p class="pregunta">Cuando se llene una tarima, toca el producto:</p>
+        <div class="presentaciones uno">{{ tarjeta(activa, True) }}</div>
+        <p class="nota">¿No es este producto? Avisa al operador de la línea para que lo cambie.</p>
+      {% else %}
+        <p class="pregunta">Toca el producto de la tarima:</p>
+        <div class="presentaciones">
+          {% for p in presentaciones %}{{ tarjeta(p, False) }}
+          {% else %}<p>Esta línea no tiene presentaciones asignadas. Dalas de alta en /admin.</p>{% endfor %}
+        </div>
+        {% if presentaciones %}<p class="nota">El operador todavía no indica qué producto se está corriendo. Si no sabes cuál es, pregúntale.</p>{% endif %}
+      {% endif %}
       {% if ultima %}
         <button id="btn-reimp-ultima" class="secundario" data-folio="{{ ultima.folio }}">
-          Reimprimir última etiqueta (Pallet {{ ultima.numero_pallet }}, {{ ultima.hora[:5] }})</button>
+          Reimprimir última etiqueta (tarima {{ ultima.numero_pallet }}, {{ ultima.hora[:5] }})</button>
         <p class="nota" id="reimp-nota"></p>
       {% endif %}
     </section>
 
-    <!-- Paso 2: confirmar -->
+    <!-- Paso 2: ¿va completa? -->
     <section id="paso-confirmar" class="confirmar oculto">
       <div class="resumen" id="conf-resumen"></div>
-      <div class="detalle" id="conf-detalle"></div>
-      <div class="fardos oculto" id="conf-fardos">
-        <button type="button" id="menos" aria-label="Menos fardos">−</button>
-        <output id="fardos-num">0</output>
-        <button type="button" id="mas" aria-label="Más fardos">+</button>
+      <p class="pregunta-grande" id="conf-pregunta">¿La tarima va completa?</p>
+
+      <div id="conf-completa">
+        <button class="btn-grande" id="btn-imprimir">SÍ, IMPRIMIR</button>
+        <div class="fila-botones"><button class="btn-texto" id="btn-faltan">No, le faltan</button></div>
       </div>
-      <input class="comentario" id="comentario" placeholder="Comentario (opcional)" maxlength="500">
-      <button class="btn-grande" id="btn-imprimir">IMPRIMIR ETIQUETA</button>
-      <div class="fila-botones">
-        <button class="btn-texto" id="btn-cancelar">Cancelar</button>
+
+      <div id="conf-incompleta" class="oculto">
+        <div class="detalle" id="conf-detalle"></div>
+        <div class="fardos">
+          <button type="button" id="menos" aria-label="Menos">−</button>
+          <output id="fardos-num">0</output>
+          <button type="button" id="mas" aria-label="Más">+</button>
+        </div>
+        <button class="btn-grande" id="btn-imprimir-inc">IMPRIMIR INCOMPLETA</button>
       </div>
+
+      <!-- Aviso si se imprime otra tarima pocos segundos después de la anterior -->
+      <div id="aviso-duplicado" class="aviso-duplicado oculto">
+        <p id="aviso-duplicado-texto"></p>
+        <div class="fila-botones">
+          <button class="btn-texto" id="dup-no">No, me equivoqué</button>
+          <button class="btn-grande" id="dup-si">Sí, es otra tarima</button>
+        </div>
+      </div>
+
+      <p class="error" id="conf-error"></p>
+      <button class="enlace-nota" id="btn-nota" type="button">+ Agregar nota</button>
+      <input class="comentario oculto" id="comentario" placeholder="Nota (opcional)" maxlength="500">
+      <div class="fila-botones"><button class="btn-texto" id="btn-cancelar">Cancelar</button></div>
     </section>
 
     <!-- Paso 3: listo -->
@@ -78,6 +102,7 @@
       <div class="check">✓</div>
       <div class="folio" id="listo-folio"></div>
       <div class="detalle" id="listo-detalle"></div>
+      <p class="instruccion">Pega la etiqueta en la tarima y toca <b>LISTO</b>.</p>
       <div class="error" id="listo-error"></div>
       <button class="btn-grande" id="btn-listo">LISTO</button>
       <div class="fila-botones">
@@ -92,9 +117,9 @@
     const params = new URLSearchParams(location.search);
     // Si la tablet atiende varias líneas, al terminar regresa a elegir línea.
     const VOLVER = params.get("volver") === "/" ? "/" : "/linea/" + LINEA;
-    let seleccion = null;     // presentación elegida
+    let seleccion = null;     // producto elegido
     let incompleta = false;
-    let fardos = 0;
+    let cantidad = 0;         // fardos o cajas (en bin: bolsas) si va incompleta
     let ultimo = null;        // folio de la última tarima
     let regresoAuto = null;
     const CLAVE_TURNO = {{ clave_turno|tojson }};
@@ -120,11 +145,11 @@
         $(id).classList.toggle("oculto", id !== paso);
       }
     }
+    const ver = (id, si) => $(id).classList.toggle("oculto", !si);
 
     function inicio() {
       clearTimeout(regresoAuto);
-      // Recarga para refrescar el conteo del turno
-      location.href = VOLVER;
+      location.href = VOLVER;   // recarga para refrescar el conteo del turno
     }
 
     // Paso 0
@@ -152,49 +177,51 @@
     }
 
     // Paso 1
-    $("btn-incompleta").onclick = () => {
-      incompleta = !incompleta;
-      $("btn-incompleta").classList.toggle("activo", incompleta);
-      $("btn-incompleta").textContent = incompleta
-        ? "Tarima incompleta (activado) - elige presentación"
-        : "Tarima incompleta";
-    };
-
     document.querySelectorAll("#paso-elegir .presentacion").forEach((b) => {
       b.onclick = () => {
-        // En el bin el contador de "incompleta" es de bolsas (de 10 en 10); si no, de fardos o cajas
+        // En el bin el contador es de bolsas (de 10 en 10); en los demás, de fardos o cajas
         seleccion = { ...b.dataset, max: Number(b.dataset.max), paso: Number(b.dataset.paso) };
-        fardos = incompleta ? seleccion.max - seleccion.paso : seleccion.max;
+        const esBin = seleccion.unidad === "bin";
+        incompleta = false;
         $("conf-resumen").textContent = seleccion.nombre + " · " + seleccion.desc;
-        $("conf-fardos").classList.toggle("oculto", !incompleta);
-        actualizarFardos();
+        $("conf-pregunta").textContent = esBin ? "¿El bin va completo?" : "¿La tarima va completa?";
+        $("btn-imprimir").textContent = "SÍ, IMPRIMIR · " + seleccion.max + " " + seleccion.palabra;
+        $("btn-faltan").textContent = "No, le faltan " + seleccion.palabra;
+        ver("conf-completa", true); ver("conf-incompleta", false); ver("aviso-duplicado", false);
+        ver("comentario", false); ver("btn-nota", true); $("conf-error").textContent = "";
         mostrar("paso-confirmar");
       };
     });
 
     // Paso 2
-    function actualizarFardos() {
-      $("fardos-num").textContent = fardos;
-      const esBin = seleccion.unidad === "bin";
-      $("conf-detalle").textContent = incompleta
-        ? (esBin ? "Bin INCOMPLETO" : "Tarima INCOMPLETA") + ": indica cuántas " + seleccion.palabra + " lleva"
-        : (esBin ? "Bin completo: " : "Tarima completa: ") + seleccion.max + " " + seleccion.palabra;
+    $("btn-faltan").onclick = () => {
+      incompleta = true;
+      cantidad = seleccion.max - seleccion.paso;
+      ver("conf-completa", false); ver("conf-incompleta", true);
+      actualizarCantidad();
+    };
+    function actualizarCantidad() {
+      $("fardos-num").textContent = cantidad;
+      const cuantos = seleccion.unidad === "fardo" ? "¿Cuántos " : "¿Cuántas ";
+      $("conf-detalle").textContent = cuantos + seleccion.palabra + " lleva? (completa lleva " + seleccion.max + ")";
     }
-    $("menos").onclick = () => { if (fardos > seleccion.paso) { fardos -= seleccion.paso; actualizarFardos(); } };
+    $("menos").onclick = () => { if (cantidad > seleccion.paso) { cantidad -= seleccion.paso; actualizarCantidad(); } };
     $("mas").onclick = () => {
-      if (fardos < seleccion.max) { fardos = Math.min(seleccion.max, fardos + seleccion.paso); actualizarFardos(); }
+      if (cantidad < seleccion.max) { cantidad = Math.min(seleccion.max, cantidad + seleccion.paso); actualizarCantidad(); }
     };
     $("btn-cancelar").onclick = inicio;
+    $("btn-nota").onclick = () => { ver("btn-nota", false); ver("comentario", true); $("comentario").focus(); };
 
-    $("btn-imprimir").onclick = async () => {
-      $("btn-imprimir").disabled = true;
-      $("btn-imprimir").textContent = "Imprimiendo…";
+    async function imprimir(confirmarDuplicado) {
+      for (const id of ["btn-imprimir", "btn-imprimir-inc", "dup-si"]) $(id).disabled = true;
+      $("conf-error").textContent = "";
       const cuerpo = {
         linea: LINEA, presentacion_id: Number(seleccion.id),
         montacarguista: quien, comentarios: $("comentario").value,
+        confirmar_duplicado: confirmarDuplicado,
       };
       if (incompleta) {
-        if (seleccion.unidad === "bin") cuerpo.bolsas = fardos; else cuerpo.fardos = fardos;
+        if (seleccion.unidad === "bin") cuerpo.bolsas = cantidad; else cuerpo.fardos = cantidad;
       }
       try {
         const r = await fetch("/api/tarima", {
@@ -203,14 +230,26 @@
           body: JSON.stringify(cuerpo),
         });
         const datos = await r.json();
+        if (r.status === 409 && datos.duplicado) {
+          // El servidor avisa que se acaba de imprimir otra tarima en esta línea
+          $("aviso-duplicado-texto").textContent = "Acabas de imprimir la tarima " + datos.numero_pallet +
+            " hace " + datos.segundos + (datos.segundos === 1 ? " segundo" : " segundos") + ". ¿Es otra tarima?";
+          ver("conf-completa", false); ver("conf-incompleta", false); ver("aviso-duplicado", true);
+          return;
+        }
         if (!r.ok) throw new Error(datos.error || "Error al registrar");
         manejarImpresion(datos);
       } catch (e) {
-        alert("No se pudo registrar: " + e.message);
-        $("btn-imprimir").disabled = false;
-        $("btn-imprimir").textContent = "IMPRIMIR ETIQUETA";
+        $("conf-error").textContent = "No se pudo registrar: " + e.message +
+          ". Revisa la conexión y vuelve a intentar.";
+      } finally {
+        for (const id of ["btn-imprimir", "btn-imprimir-inc", "dup-si"]) $(id).disabled = false;
       }
-    };
+    }
+    $("btn-imprimir").onclick = () => imprimir(false);
+    $("btn-imprimir-inc").onclick = () => imprimir(false);
+    $("dup-si").onclick = () => imprimir(true);
+    $("dup-no").onclick = inicio;
 
     function manejarImpresion(datos) {
       const t = datos.tarima;
@@ -235,7 +274,7 @@
     // Paso 3
     function mostrarListo(t, error) {
       ultimo = t.folio;
-      $("listo-folio").textContent = "Pallet " + t.numero_pallet;
+      $("listo-folio").textContent = "Tarima " + t.numero_pallet + " lista";
       $("listo-detalle").textContent =
         t.presentacion + " · Lote " + t.lote + " · " + cantidadTexto(t) + " · " + t.libras + " lb";
       $("listo-error").textContent = error || "";
@@ -251,7 +290,8 @@
       if (datos.mensaje === "abrir_etiqueta") {
         abrirEtiqueta(ultimo);
       } else {
-        $("listo-error").textContent = datos.impreso ? "Reimpresa" : datos.mensaje;
+        $("listo-error").textContent = datos.impreso
+          ? "Etiqueta enviada otra vez. No se registró ninguna tarima nueva." : datos.mensaje;
       }
     };
 
@@ -264,6 +304,8 @@
         lote: params.get("lote") || "",
         presentacion: params.get("p") || "",
         fardos: params.get("f") || "",
+        bolsas: params.get("b") || "",
+        unidad: params.get("u") || "fardo",
         libras: params.get("l") || "",
       });
     }

@@ -138,3 +138,9 @@ CREATE INDEX IF NOT EXISTS correcciones_tarima_idx ON correcciones (tarima_id);
 ALTER TABLE presentaciones ADD COLUMN IF NOT EXISTS unidad TEXT NOT NULL DEFAULT 'fardo';
 ALTER TABLE lineas  ADD COLUMN IF NOT EXISTS lote_caja TEXT NOT NULL DEFAULT '';
 ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS lote_caja TEXT NOT NULL DEFAULT '';
+
+-- ---------------------------------------------------------------------------
+-- Versión 5: producto que se está corriendo (lo fija el operador; la tablet solo muestra ese)
+-- ---------------------------------------------------------------------------
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS presentacion_activa_id INTEGER
+    REFERENCES presentaciones(id) ON DELETE SET NULL;

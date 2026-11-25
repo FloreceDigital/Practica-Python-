@@ -73,6 +73,7 @@
         ultimo: {{ t.folio|tojson }}, p: {{ t.presentacion|tojson }},
         f: {{ t.fardos|tojson }}, l: {{ t.libras|tojson }},
         n: {{ t.numero_pallet|string|tojson }}, lote: {{ t.lote|tojson }},
+        u: {{ t.unidad|tojson }}, b: {{ t.bolsas|tojson }},
       });
       if (volver === "/") q.set("volver", "/");
       location.href = "/linea/" + encodeURIComponent({{ t.linea_codigo|tojson }}) + "?" + q.toString();

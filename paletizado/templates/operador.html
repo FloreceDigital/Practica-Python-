@@ -19,6 +19,13 @@
   {% if guardado %}<p class="aviso">Datos guardados. Las siguientes tarimas ya salen con ellos.</p>{% endif %}
 
   <form class="formulario corrida" method="post">
+    <label>Producto que se está corriendo <span class="nota">(la tablet del montacargas solo muestra este)</span>
+      <select name="presentacion_activa">
+        <option value="">Sin indicar (el montacarguista elige)</option>
+        {% for p in presentaciones %}
+          <option value="{{ p.id }}" {{ "selected" if p.id == linea.presentacion_activa_id }}>{{ p.nombre }} · {{ {"fardo": "Fardo", "caja": "Caja", "bin": "Bin"}[p.unidad] }} · {{ p.bolsas_por_fardo }} bolsas de {{ p.libras_por_bolsa }} lb</option>
+        {% endfor %}
+      </select></label>
     <div class="fila-campos">
       <label>Color
         <input name="color" value="{{ linea.color_actual }}" inputmode="numeric" placeholder="ej. 985"></label>

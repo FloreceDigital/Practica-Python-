@@ -220,3 +220,19 @@ button.enlace.anular { color: var(--rojo); }
 .sel-tarima { width: 20px; height: 20px; accent-color: var(--amarillo); }
 .corregida { font-size: 0.75rem; color: var(--amarillo); border: 1px solid var(--amarillo); border-radius: 999px; padding: 1px 6px; }
 .aviso a { color: var(--texto); }
+
+/* --- Tablet para quien pone etiquetas --- */
+:root { --c-fardo: #4C8FE0; --c-caja: #E0A33A; --c-bin: #A77BE8; }
+.presentacion.tipo-fardo { border-left: 12px solid var(--c-fardo); }
+.presentacion.tipo-caja  { border-left: 12px solid var(--c-caja); }
+.presentacion.tipo-bin   { border-left: 12px solid var(--c-bin); }
+.presentaciones.uno { grid-template-columns: 1fr; }
+.presentacion.activo { border-top-color: var(--verde); border-right-color: var(--verde); border-bottom-color: var(--verde); }
+.presentacion.activo .nombre { font-size: 3.6rem; }
+.presentacion .etq { color: var(--verde); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; margin-bottom: 8px; }
+.pregunta-grande { font-size: 1.6rem; font-weight: 700; margin: 6px 0 18px; }
+.instruccion { font-size: 1.2rem; margin: 4px 0 16px; }
+.enlace-nota { background: none; border: none; color: var(--tenue); text-decoration: underline; margin: 14px auto 0; display: block; }
+.aviso-duplicado { border: 2px solid var(--amarillo); border-radius: var(--radio); padding: 16px; margin-bottom: 12px; }
+.aviso-duplicado p { font-size: 1.2rem; margin: 0 0 12px; }
+#paso-confirmar .error { color: var(--amarillo); }
