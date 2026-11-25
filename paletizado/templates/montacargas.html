@@ -45,6 +45,11 @@
         {% endfor %}
       </div>
       <button id="btn-incompleta" class="secundario">Tarima incompleta</button>
+      {% if ultima %}
+        <button id="btn-reimp-ultima" class="secundario" data-folio="{{ ultima.folio }}">
+          Reimprimir última etiqueta (Pallet {{ ultima.numero_pallet }}, {{ ultima.hora[:5] }})</button>
+        <p class="nota" id="reimp-nota"></p>
+      {% endif %}
     </section>
 
     <!-- Paso 2: confirmar -->
@@ -127,6 +132,19 @@
     $("btn-quien").onclick = () => mostrar("paso-quien");
     $("quien-nombre").textContent = quien || "—";
     if (!quien) mostrar("paso-quien");
+
+    // Reimprimir la última etiqueta de la línea (por si se acabó el rollo). No registra nada nuevo.
+    if ($("btn-reimp-ultima")) {
+      $("btn-reimp-ultima").onclick = async () => {
+        const folio = $("btn-reimp-ultima").dataset.folio;
+        const r = await fetch("/api/reimprimir/" + encodeURIComponent(folio), { method: "POST" });
+        const datos = await r.json();
+        if (datos.mensaje === "abrir_etiqueta") { abrirEtiqueta(folio); return; }
+        $("reimp-nota").textContent = datos.impreso
+          ? "Etiqueta enviada otra vez a la impresora. No se registró ninguna tarima nueva."
+          : datos.mensaje;
+      };
+    }
 
     // Paso 1
     $("btn-incompleta").onclick = () => {

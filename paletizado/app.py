@@ -54,6 +54,7 @@ def montacargas(codigo):
         turno=turno,
         clave_turno=f"{registro.inicio_turno(ahora):%Y-%m-%d}-{turno}",
         total=totales.get(linea["id"], {}).get("tarimas", 0),
+        ultima=next((t for t in registro.ultimas(linea["id"], 5) if t["estado"] == "OK"), None),
         varias_lineas=len(registro.lineas()) > 1,
     )
 
