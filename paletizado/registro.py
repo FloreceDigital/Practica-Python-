@@ -440,6 +440,55 @@ def resumen_turno():
     return turno_actual(ahora), por_linea
 
 
+# --- Resumen por turno -------------------------------------------------------
+
+LB_TON_CORTA = 2000        # tonelada corta (EE. UU.)
+LB_TON_METRICA = 2204.62   # tonelada métrica
+
+ENCABEZADOS_TURNO = [
+    ("fecha", "Fecha"), ("turno", "Turno"), ("linea", "Línea"), ("tarimas", "Tarimas"),
+    ("incompletas", "Tarimas incompletas"), ("fardos", "Fardos"), ("libras", "Libras"),
+    ("ton_cortas", "Toneladas cortas (2,000 lb)"), ("ton_metricas", "Toneladas métricas"),
+    ("anuladas", "Tarimas anuladas"),
+]
+
+
+def resumen_por_turno(desde, hasta, linea_codigo=None):
+    """Tarimas y toneladas de cada turno (por el día en que empezó el turno).
+    Las anuladas no cuentan en las cantidades; se reportan aparte."""
+    filtro = "WHERE t.fecha_turno >= %s AND t.fecha_turno <= %s"
+    params = [desde, hasta]
+    if linea_codigo:
+        filtro += " AND l.codigo = %s"
+        params.append(linea_codigo)
+    with db.conectar() as con:
+        filas = con.execute(
+            f"""SELECT t.fecha_turno, t.turno, l.nombre AS linea,
+                       count(*) FILTER (WHERE t.estado = 'OK') AS tarimas,
+                       count(*) FILTER (WHERE t.estado = 'OK' AND NOT t.completa) AS incompletas,
+                       coalesce(sum(t.fardos) FILTER (WHERE t.estado = 'OK'), 0) AS fardos,
+                       coalesce(sum(t.libras) FILTER (WHERE t.estado = 'OK'), 0) AS libras,
+                       count(*) FILTER (WHERE t.estado = 'ANULADA') AS anuladas
+                FROM tarimas t JOIN lineas l ON l.id = t.linea_id
+                {filtro}
+                GROUP BY t.fecha_turno, t.turno, l.nombre
+                ORDER BY t.fecha_turno DESC, t.turno DESC, l.nombre""",
+            params,
+        ).fetchall()
+    resultado = []
+    for f in filas:
+        libras = numero_limpio(f["libras"])
+        resultado.append({
+            "fecha": f["fecha_turno"].strftime("%Y-%m-%d"), "turno": f["turno"], "linea": f["linea"],
+            "tarimas": f["tarimas"], "incompletas": f["incompletas"], "fardos": int(f["fardos"]),
+            "libras": libras,
+            "ton_cortas": round(float(libras) / LB_TON_CORTA, 2),
+            "ton_metricas": round(float(libras) / LB_TON_METRICA, 2),
+            "anuladas": f["anuladas"],
+        })
+    return resultado
+
+
 # --- Excel --------------------------------------------------------------------
 
 def exportar_excel(desde, hasta, linea_codigo=None):
@@ -477,6 +526,19 @@ def exportar_excel(desde, hasta, linea_codigo=None):
         hoja.column_dimensions[letra].width = min(max(10, largo + 2), 45)
     hoja.freeze_panes = "A2"
     hoja.auto_filter.ref = hoja.dimensions
+
+    # Segunda hoja: tarimas y toneladas por turno
+    turnos = libro.create_sheet("Resumen por turno")
+    turnos.append([titulo for _, titulo in ENCABEZADOS_TURNO])
+    for celda in turnos[1]:
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = PatternFill("solid", fgColor="1F4E78")
+    for r in resumen_por_turno(desde.date(), hasta.date(), linea_codigo):
+        turnos.append([r[c] for c, _ in ENCABEZADOS_TURNO])
+    for columna in turnos.columns:
+        largo = max(len(str(c.value or "")) for c in columna)
+        turnos.column_dimensions[columna[0].column_letter].width = min(max(10, largo + 2), 32)
+    turnos.freeze_panes = "A2"
 
     archivo = io.BytesIO()
     libro.save(archivo)

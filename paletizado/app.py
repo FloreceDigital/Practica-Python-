@@ -13,7 +13,7 @@ Luego en la tablet abrir:  http://IP-DEL-SERVIDOR:5000
 """
 
 import hmac
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from flask import (
     Flask, Response, abort, jsonify, redirect, render_template, request, send_file, url_for,
@@ -85,6 +85,7 @@ def operador(codigo):
         turno=turno,
         resumen=totales.get(linea["id"], {"tarimas": 0, "fardos": 0, "libras": 0}),
         ultimas=registro.ultimas(linea["id"]),
+        turnos=registro.resumen_por_turno(date.today() - timedelta(days=6), date.today(), codigo),
         sheets_activo=sheets.activo(),
         sheets_pendientes=sheets.pendientes(),
     )
