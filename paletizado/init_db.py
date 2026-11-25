@@ -47,7 +47,7 @@ def datos_iniciales(con):
         )
         print("Se dio de alta la presentación 25000307 ZULKA PURE CANE SUGAR 10/4 LBS (asignada a L4).")
 
-    # 5/8 lb: fardo de 5 bolsas de 8 lb; tarima de 6 camas x 9 fardos = 54 fardos
+    # 5/8 lb (se corre en la Línea 2): fardo de 5 bolsas de 8 lb; tarima de 6 camas x 9 fardos = 54 fardos
     # (código SAP pendiente: se captura después en /admin)
     nueva = con.execute(
         """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
@@ -58,10 +58,10 @@ def datos_iniciales(con):
     if nueva:
         con.execute(
             """INSERT INTO linea_presentacion (linea_id, presentacion_id)
-               SELECT id, %s FROM lineas WHERE codigo = 'L4'""",
+               SELECT id, %s FROM lineas WHERE codigo = 'L2'""",
             (nueva["id"],),
         )
-        print("Se dio de alta la presentación 5/8 lb (54 fardos, asignada a L4).")
+        print("Se dio de alta la presentación 5/8 lb (54 fardos, asignada a L2).")
         print("Las demás presentaciones se dan de alta en /admin.")
 
 
