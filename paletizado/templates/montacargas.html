@@ -57,7 +57,7 @@
       {% endif %}
       {% if ultima %}
         <button id="btn-reimp-ultima" class="secundario" data-folio="{{ ultima.folio }}">
-          Reimprimir última etiqueta (tarima {{ ultima.numero_pallet }}, {{ ultima.hora[:5] }})</button>
+          Reimprimir última etiqueta (tarima {{ ultima.numero_pallet }}, {{ ultima.hora|hora12 }})</button>
         <p class="nota" id="reimp-nota"></p>
       {% endif %}
     </section>

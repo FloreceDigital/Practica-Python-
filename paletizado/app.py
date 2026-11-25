@@ -27,6 +27,13 @@ import sheets
 app = Flask(__name__)
 
 
+@app.template_filter("hora12")
+def hora12(hhmmss):
+    """"18:35:00" -> "6:35 p.m." (como en la hoja de Excel de la planta)"""
+    h, m = (int(x) for x in str(hhmmss).split(":")[:2])
+    return f"{h % 12 or 12}:{m:02d} {'a.m.' if h < 12 else 'p.m.'}"
+
+
 # --- Pantallas de la tablet ---------------------------------------------------
 
 @app.route("/")
