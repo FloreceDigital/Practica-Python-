@@ -7,8 +7,10 @@
       <input name="clave" value="{{ p.clave if p }}" required maxlength="20"></label>
     <label>Nombre (lo que ve el montacarguista, ej. 4 lb)
       <input name="nombre" value="{{ p.nombre if p }}" required></label>
-    <label>Descripción
-      <input name="descripcion" value="{{ p.descripcion if p }}" placeholder="Fardo de 10 bolsas"></label>
+    <label>Descripción (como aparece en SAP y en el formulario)
+      <input name="descripcion" value="{{ p.descripcion if p }}" placeholder="ZULKA PURE CANE SUGAR 10/4 LBS"></label>
+    <label>Código de material SAP
+      <input name="codigo_sap" value="{{ p.codigo_sap if p }}" placeholder="25000307" inputmode="numeric"></label>
     <div class="fila-campos">
       <label>Libras por bolsa
         <input name="libras_por_bolsa" type="number" step="0.001" min="0.001" value="{{ p.libras_por_bolsa if p }}" required></label>

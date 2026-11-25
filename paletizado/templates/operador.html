@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block meta %}<meta http-equiv="refresh" content="30">{% endblock %}
 {% block titulo %}Operador - {{ linea.nombre }}{% endblock %}
 {% block barra %}
   <h1>{{ linea.nombre }} · Operador</h1>
   <span class="dato">Turno <b>{{ turno }}</b></span>
+  <span class="dato">Lote <b>{{ lote }}</b></span>
   {% include "_estado_sheets.html" %}
   <a class="cambiar" href="/resumen">Todas las líneas</a>
 {% endblock %}
@@ -14,12 +14,53 @@
     <div class="tarjeta"><div class="num">{{ "{:,}".format(resumen.libras) }}</div><div class="lbl">Libras</div></div>
   </div>
 
-  <form class="lote" method="post">
-    <input name="lote" value="{{ linea.lote_actual }}" placeholder="Lote de la corrida" aria-label="Lote de la corrida">
-    <button type="submit">Guardar lote</button>
-    <a class="boton" href="/excel?linea={{ linea.codigo }}">Excel de hoy</a>
+  <h2>Datos de la corrida</h2>
+  <p class="nota">Se capturan una vez y se copian a cada tarima. Cámbialos solo cuando cambien (color, lote de material, personal).</p>
+  {% if guardado %}<p class="aviso">Datos guardados. Las siguientes tarimas ya salen con ellos.</p>{% endif %}
+
+  <form class="formulario corrida" method="post">
+    <div class="fila-campos">
+      <label>Color
+        <input name="color" value="{{ linea.color_actual }}" inputmode="numeric" placeholder="ej. 985"></label>
+      <label>Lot Packaging Material / Bag film
+        <input name="lote_film" value="{{ linea.lote_film }}" list="lotes-film" inputmode="numeric"></label>
+      <label>Lot Packaging Material / Bale
+        <input name="lote_bale" value="{{ linea.lote_bale }}" list="lotes-bale" inputmode="numeric"></label>
+    </div>
+    <datalist id="lotes-film">{% for v in lotes_film %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="lotes-bale">{% for v in lotes_bale %}<option value="{{ v }}">{% endfor %}</datalist>
+
+    <div class="fila-campos">
+      <label>Production Operator
+        <input name="operador_produccion" value="{{ linea.operador_produccion }}" list="lista-operadores"></label>
+      <label>Shift Supervisor
+        <input name="supervisor" value="{{ linea.supervisor }}" list="lista-supervisores"></label>
+    </div>
+    <datalist id="lista-operadores">{% for n in operadores %}<option value="{{ n }}">{% endfor %}</datalist>
+    <datalist id="lista-supervisores">{% for n in supervisores %}<option value="{{ n }}">{% endfor %}</datalist>
+
+    <fieldset>
+      <legend>Estibadores</legend>
+      {% for n in estibadores %}
+        <label class="check"><input type="checkbox" name="estibadores" value="{{ n }}" {{ "checked" if n in estibadores_actuales }}> {{ n }}</label>
+      {% endfor %}
+      {% for n in estibadores_actuales if n not in estibadores %}
+        <label class="check"><input type="checkbox" name="estibadores" value="{{ n }}" checked> {{ n }}</label>
+      {% endfor %}
+      <label>Otros (separados por coma)
+        <input name="estibadores" placeholder="ej. Eddy, Mauricio"></label>
+    </fieldset>
+
+    <label>Lote manual <span class="nota">(déjalo vacío para usar el automático: <b>{{ lote_auto }}</b>)</span>
+      <input name="lote_manual" value="{{ linea.lote_actual }}" inputmode="numeric"></label>
+
+    <button type="submit">Guardar datos de la corrida</button>
   </form>
 
+  <div class="titulo-seccion">
+    <h2>Últimas tarimas</h2>
+    <a class="boton" href="/excel?linea={{ linea.codigo }}">Excel de hoy</a>
+  </div>
   {% set mostrar_linea = False %}
   {% include "_tabla_tarimas.html" %}
 {% endblock %}

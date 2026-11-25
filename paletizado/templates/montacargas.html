@@ -2,15 +2,32 @@
 {% block titulo %}Tarimas - {{ linea.nombre }}{% endblock %}
 {% block barra %}
   <h1>{{ linea.nombre }}</h1>
-  {% if linea.lote_actual %}
-    <span class="dato">Lote <b>{{ linea.lote_actual }}</b></span>
+  <span class="dato">Lote <b>{{ lote }}</b></span>
+  {% if linea.color_actual %}
+    <span class="dato">Color <b>{{ linea.color_actual }}</b></span>
   {% else %}
-    <span class="dato alerta">Lote <b>sin definir</b></span>
+    <span class="dato alerta">Color <b>sin capturar</b></span>
   {% endif %}
   <span class="dato">Turno {{ turno }}: <b>{{ total }}</b> tarimas</span>
+  <button class="cambiar" id="btn-quien" type="button">Montacargas: <b id="quien-nombre">—</b></button>
   {% if varias_lineas %}<a class="cambiar" href="/">Cambiar línea</a>{% endif %}
 {% endblock %}
 {% block contenido %}
+    <!-- Paso 0: quién maneja el montacargas (una vez por turno) -->
+    <section id="paso-quien" class="oculto">
+      <p class="pregunta">¿Quién maneja el montacargas en este turno?</p>
+      <div class="presentaciones lineas">
+        {% for n in montacarguistas %}
+          <button class="presentacion persona" data-nombre="{{ n }}"><div class="desc">{{ n }}</div></button>
+        {% endfor %}
+      </div>
+      <form id="form-quien" class="formulario lote-otro">
+        <label>{{ "Otro:" if montacarguistas else "Escribe tu nombre:" }}
+          <input id="quien-otro" autocomplete="off"></label>
+        <button type="submit">Continuar</button>
+      </form>
+    </section>
+
     <!-- Paso 1: elegir presentación -->
     <section id="paso-elegir">
       <p class="pregunta">Toca la presentación de la tarima:</p>
@@ -39,6 +56,7 @@
         <output id="fardos-num">0</output>
         <button type="button" id="mas" aria-label="Más fardos">+</button>
       </div>
+      <input class="comentario" id="comentario" placeholder="Comentario (opcional)" maxlength="500">
       <button class="btn-grande" id="btn-imprimir">IMPRIMIR ETIQUETA</button>
       <div class="fila-botones">
         <button class="btn-texto" id="btn-cancelar">Cancelar</button>
@@ -70,9 +88,26 @@
     let fardos = 0;
     let ultimo = null;        // folio de la última tarima
     let regresoAuto = null;
+    const CLAVE_TURNO = {{ clave_turno|tojson }};
+
+    // El nombre del montacarguista se guarda en la tablet y se vuelve a
+    // preguntar cuando cambia el turno.
+    function leerQuien() {
+      try {
+        const g = JSON.parse(localStorage.getItem("montacarguista") || "null");
+        return g && g.turno === CLAVE_TURNO ? g.nombre : "";
+      } catch (e) { return ""; }
+    }
+    function guardarQuien(nombre) {
+      try { localStorage.setItem("montacarguista", JSON.stringify({ nombre, turno: CLAVE_TURNO })); } catch (e) {}
+      quien = nombre;
+      $("quien-nombre").textContent = nombre;
+      mostrar("paso-elegir");
+    }
+    let quien = leerQuien();
 
     function mostrar(paso) {
-      for (const id of ["paso-elegir", "paso-confirmar", "paso-listo"]) {
+      for (const id of ["paso-quien", "paso-elegir", "paso-confirmar", "paso-listo"]) {
         $(id).classList.toggle("oculto", id !== paso);
       }
     }
@@ -83,6 +118,17 @@
       location.href = VOLVER;
     }
 
+    // Paso 0
+    document.querySelectorAll(".persona").forEach((b) => { b.onclick = () => guardarQuien(b.dataset.nombre); });
+    $("form-quien").onsubmit = (e) => {
+      e.preventDefault();
+      const n = $("quien-otro").value.trim();
+      if (n) guardarQuien(n);
+    };
+    $("btn-quien").onclick = () => mostrar("paso-quien");
+    $("quien-nombre").textContent = quien || "—";
+    if (!quien) mostrar("paso-quien");
+
     // Paso 1
     $("btn-incompleta").onclick = () => {
       incompleta = !incompleta;
@@ -92,7 +138,7 @@
         : "Tarima incompleta";
     };
 
-    document.querySelectorAll(".presentacion").forEach((b) => {
+    document.querySelectorAll("#paso-elegir .presentacion").forEach((b) => {
       b.onclick = () => {
         seleccion = { ...b.dataset, max: Number(b.dataset.max) };
         fardos = incompleta ? seleccion.max - 1 : seleccion.max;
@@ -117,7 +163,10 @@
     $("btn-imprimir").onclick = async () => {
       $("btn-imprimir").disabled = true;
       $("btn-imprimir").textContent = "Imprimiendo…";
-      const cuerpo = { linea: LINEA, presentacion_id: Number(seleccion.id) };
+      const cuerpo = {
+        linea: LINEA, presentacion_id: Number(seleccion.id),
+        montacarguista: quien, comentarios: $("comentario").value,
+      };
       if (incompleta) cuerpo.fardos = fardos;
       try {
         const r = await fetch("/api/tarima", {
@@ -153,9 +202,9 @@
     // Paso 3
     function mostrarListo(t, error) {
       ultimo = t.folio;
-      $("listo-folio").textContent = t.folio;
+      $("listo-folio").textContent = "Pallet " + t.numero_pallet;
       $("listo-detalle").textContent =
-        t.presentacion + " · " + t.fardos + " fardos · " + t.libras + " lb";
+        t.presentacion + " · Lote " + t.lote + " · " + t.fardos + " fardos · " + t.libras + " lb";
       $("listo-error").textContent = error || "";
       mostrar("paso-listo");
       regresoAuto = setTimeout(inicio, 30000);  // regresa solo en 30 s
@@ -174,7 +223,7 @@
     };
 
     $("btn-anular").onclick = async () => {
-      if (!confirm("¿Anular la tarima " + ultimo + "?")) return;
+      if (!confirm("¿Anular esta tarima (" + $("listo-folio").textContent + ")?")) return;
       await fetch("/api/anular/" + encodeURIComponent(ultimo), { method: "POST" });
       inicio();
     };
@@ -184,6 +233,8 @@
       history.replaceState(null, "", location.pathname + (VOLVER === "/" ? "?volver=/" : ""));
       mostrarListo({
         folio: params.get("ultimo"),
+        numero_pallet: params.get("n") || "",
+        lote: params.get("lote") || "",
         presentacion: params.get("p") || "",
         fardos: params.get("f") || "",
         libras: params.get("l") || "",

@@ -188,3 +188,20 @@ label.check input { width: 22px; height: 22px; }
 .formulario input:not([type=checkbox]) { width: 100%; min-width: 0; }
 .fila-campos label { min-width: 0; }
 .lineas .cant span { white-space: nowrap; }
+
+/* --- Datos del formulario de producción --- */
+.barra button.cambiar { background: none; font-size: 1rem; cursor: pointer; }
+.barra button.cambiar + .cambiar, .barra a.cambiar + a.cambiar { margin-left: 8px; }
+.persona { min-height: 0; padding: 22px 24px; }
+.persona .desc { font-size: 1.5rem; margin: 0; }
+.lote-otro { margin-top: 20px; grid-template-columns: 1fr auto; align-items: end; max-width: 640px; }
+.comentario {
+  width: 100%; padding: 14px; margin-bottom: 20px; font-size: 1.1rem;
+  background: var(--fondo); color: var(--texto); border: 2px solid var(--borde); border-radius: 10px;
+}
+.corrida { max-width: none; }
+.formulario select, .formulario textarea {
+  padding: 12px; font-size: 1.1rem; background: var(--panel); color: var(--texto);
+  border: 2px solid var(--borde); border-radius: 10px; width: 100%;
+}
+button.enlace { background: none; border: none; color: var(--texto); text-decoration: underline; padding: 0; }

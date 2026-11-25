@@ -44,11 +44,15 @@ def montacargas(codigo):
     if linea is None or not linea["activa"]:
         abort(404)
     turno, totales = registro.resumen_turno()
+    ahora = datetime.now()
     return render_template(
         "montacargas.html",
         linea=linea,
+        lote=registro.lote_de_linea(linea, ahora),
         presentaciones=registro.presentaciones_de_linea(linea["id"]),
+        montacarguistas=[p["nombre"] for p in registro.personas("montacargas")],
         turno=turno,
+        clave_turno=f"{registro.inicio_turno(ahora):%Y-%m-%d}-{turno}",
         total=totales.get(linea["id"], {}).get("tarimas", 0),
         varias_lineas=len(registro.lineas()) > 1,
     )
@@ -62,13 +66,22 @@ def operador(codigo):
     if linea is None:
         abort(404)
     if request.method == "POST":
-        registro.guardar_lote(codigo, request.form.get("lote", ""))
-        return redirect(url_for("operador", codigo=codigo))
+        registro.guardar_corrida(codigo, request.form, request.form.getlist("estibadores"))
+        return redirect(url_for("operador", codigo=codigo, guardado=1))
 
     turno, totales = registro.resumen_turno()
     return render_template(
         "operador.html",
         linea=linea,
+        lote_auto=registro.lote_automatico(datetime.now()),
+        lote=registro.lote_de_linea(linea),
+        guardado=request.args.get("guardado") == "1",
+        operadores=[p["nombre"] for p in registro.personas("operador")],
+        supervisores=[p["nombre"] for p in registro.personas("supervisor")],
+        estibadores=[p["nombre"] for p in registro.personas("estibador")],
+        estibadores_actuales=[e.strip() for e in linea["estibadores"].split(",") if e.strip()],
+        lotes_film=registro.lotes_material_recientes("lote_film"),
+        lotes_bale=registro.lotes_material_recientes("lote_bale"),
         turno=turno,
         resumen=totales.get(linea["id"], {"tarimas": 0, "fardos": 0, "libras": 0}),
         ultimas=registro.ultimas(linea["id"]),
@@ -150,6 +163,8 @@ def api_registrar():
             datos.get("linea", ""),
             int(datos.get("presentacion_id", 0)),
             int(fardos) if fardos is not None else None,
+            montacarguista=str(datos.get("montacarguista", ""))[:100],
+            comentarios=str(datos.get("comentarios", ""))[:500],
         )
     except (registro.ErrorRegistro, ValueError) as error:
         return jsonify(error=str(error)), 400
@@ -201,6 +216,31 @@ def admin():
         asignaciones=registro.asignaciones(),
         mensaje=request.args.get("mensaje", ""),
     )
+
+
+@app.route("/admin/personas", methods=["GET", "POST"])
+def admin_personas():
+    if request.method == "POST":
+        try:
+            # Se pueden pegar varios nombres, uno por renglón
+            for nombre in request.form.get("nombres", "").splitlines():
+                if nombre.strip():
+                    registro.agregar_persona(nombre, request.form.get("rol", ""))
+        except ValueError as error:
+            return redirect(url_for("admin_personas", mensaje=str(error)))
+        return redirect(url_for("admin_personas", mensaje="Personal guardado"))
+    return render_template(
+        "admin_personas.html",
+        personas=registro.personas(solo_activas=False),
+        roles=registro.ROLES,
+        mensaje=request.args.get("mensaje", ""),
+    )
+
+
+@app.post("/admin/personas/<int:persona_id>/activa")
+def admin_persona_activa(persona_id):
+    registro.cambiar_persona_activa(persona_id, request.form.get("activa") == "1")
+    return redirect(url_for("admin_personas"))
 
 
 @app.route("/admin/linea", methods=["GET", "POST"])

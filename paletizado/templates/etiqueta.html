@@ -13,17 +13,19 @@
       width: 4in; height: 6in; margin: 16px auto; padding: 0.25in;
       background: #fff; display: flex; flex-direction: column;
     }
-    .linea { font-size: 16pt; font-weight: bold; }
-    .folio { font-size: 40pt; font-weight: 900; letter-spacing: 1px; line-height: 1.1; }
+    .arriba { display: flex; justify-content: space-between; font-size: 14pt; font-weight: bold; }
+    .pallet { font-size: 64pt; font-weight: 900; line-height: 1; }
+    .lote { font-size: 30pt; font-weight: 900; line-height: 1.1; }
+    small { font-size: 12pt; font-weight: bold; }
     hr { border: none; border-top: 3px solid #000; margin: 8px 0; }
-    .pres { font-size: 22pt; font-weight: bold; }
+    .pres { font-size: 15pt; font-weight: bold; }
     .estado { font-size: 15pt; font-weight: bold; margin: 4px 0 8px; }
     .estado.inc { background: #000; color: #fff; padding: 2px 6px; display: inline-block; }
-    table { font-size: 15pt; border-collapse: collapse; }
+    table { font-size: 14pt; border-collapse: collapse; margin-top: 6px; }
     td { padding: 2px 10px 2px 0; }
     td:first-child { font-weight: bold; }
     .pie { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; }
-    .pie .fecha { font-size: 12pt; }
+    .pie .fecha { font-size: 11pt; }
     .pie img { width: 1.5in; height: 1.5in; }
     .anulada { position: absolute; font-size: 40pt; color: red; transform: rotate(-30deg); margin: 2in 0 0 0.3in; }
     .acciones { text-align: center; margin: 16px; }
@@ -38,23 +40,18 @@
 <body>
   <div class="etiqueta">
     {% if t.estado == "ANULADA" %}<div class="anulada">ANULADA</div>{% endif %}
-    <div class="linea">{{ t.linea }}</div>
-    <div class="folio">{{ t.folio }}</div>
+    <div class="arriba"><span>{{ t.linea }}</span><span>Turno {{ t.turno }}</span></div>
+    <div class="pallet"><small>PALLET</small> {{ t.numero_pallet }}</div>
+    <div class="lote"><small>LOT</small> {{ t.lote }}</div>
     <hr>
-    <div class="pres">{{ t.presentacion }} · {{ t.descripcion }}</div>
-    {% if t.completa == "SI" %}
-      <div class="estado">TARIMA COMPLETA</div>
-    {% else %}
-      <div class="estado inc">TARIMA INCOMPLETA</div>
-    {% endif %}
+    <div class="pres">{{ t.codigo_sap }} {{ t.descripcion }}</div>
+    {% if t.completa != "SI" %}<div class="estado inc">TARIMA INCOMPLETA</div>{% endif %}
     <table>
-      <tr><td>Fardos</td><td>{{ t.fardos }}</td></tr>
-      <tr><td>Bolsas</td><td>{{ t.bolsas }}</td></tr>
-      <tr><td>Libras</td><td>{{ t.libras }}</td></tr>
-      <tr><td>Lote</td><td>{{ t.lote }}</td></tr>
+      <tr><td>Fardos</td><td>{{ t.fardos }}</td><td>Color</td><td>{{ t.color or "—" }}</td></tr>
+      <tr><td>Libras</td><td>{{ t.libras }}</td><td>Bolsas</td><td>{{ t.bolsas }}</td></tr>
     </table>
     <div class="pie">
-      <div class="fecha">{{ t.fecha }}<br>{{ t.hora }}<br>Turno {{ t.turno }}</div>
+      <div class="fecha">{{ t.fecha }} {{ t.hora[:5] }}<br>{{ t.folio }}</div>
       <img src="data:image/png;base64,{{ qr }}" alt="QR {{ t.folio }}">
     </div>
   </div>
@@ -70,6 +67,7 @@
       const q = new URLSearchParams({
         ultimo: {{ t.folio|tojson }}, p: {{ t.presentacion|tojson }},
         f: {{ t.fardos|tojson }}, l: {{ t.libras|tojson }},
+        n: {{ t.numero_pallet|string|tojson }}, lote: {{ t.lote|tojson }},
       });
       if (volver === "/") q.set("volver", "/");
       location.href = "/linea/" + encodeURIComponent({{ t.linea_codigo|tojson }}) + "?" + q.toString();

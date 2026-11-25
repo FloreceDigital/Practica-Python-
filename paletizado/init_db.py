@@ -25,7 +25,7 @@ def crear_tablas(con):
 
 
 def datos_iniciales(con):
-    """Si la base está vacía, da de alta las 6 líneas y la presentación de 4 lb."""
+    """Si la base está vacía, da de alta las 6 líneas y la presentación 10/4 lb."""
     if con.execute("SELECT count(*) AS n FROM lineas").fetchone()["n"] == 0:
         for n in range(1, 7):
             con.execute(
@@ -35,16 +35,17 @@ def datos_iniciales(con):
 
     if con.execute("SELECT count(*) AS n FROM presentaciones").fetchone()["n"] == 0:
         pid = con.execute(
-            """INSERT INTO presentaciones (clave, nombre, descripcion, libras_por_bolsa,
-                   bolsas_por_fardo, fardos_por_tarima)
-               VALUES ('4LB-F10', '4 lb', 'Fardo de 10 bolsas', 4, 10, 56) RETURNING id"""
+            """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
+                   libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima)
+               VALUES ('25000307', '10/4 lb', 'ZULKA PURE CANE SUGAR 10/4 LBS', '25000307',
+                       4, 10, 56) RETURNING id"""
         ).fetchone()["id"]
         con.execute(
             """INSERT INTO linea_presentacion (linea_id, presentacion_id)
                SELECT id, %s FROM lineas WHERE codigo = 'L4'""",
             (pid,),
         )
-        print("Se dio de alta la presentación 4 lb (asignada a L4).")
+        print("Se dio de alta la presentación 25000307 ZULKA PURE CANE SUGAR 10/4 LBS (asignada a L4).")
         print("Las demás presentaciones se dan de alta en /admin.")
 
 

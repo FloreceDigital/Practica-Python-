@@ -16,10 +16,21 @@
 const CLAVE = "cambia-esta-clave";
 const NOMBRE_HOJA = "Tarimas";
 
+// [clave que manda la app, título de la columna en la hoja]
+// Los primeros títulos son los mismos del formulario de Google que usaban antes.
 const COLUMNAS = [
-  "folio", "fecha", "hora", "turno", "linea", "presentacion", "descripcion",
-  "lote", "fardos", "bolsas", "libras", "completa", "estado", "registro_por",
+  ["fecha", "Fecha"], ["turno", "Shift"], ["producto", "Product"], ["color", "Color"],
+  ["lote", "Lot No."], ["numero_pallet", "Finished Pallet No."],
+  ["fardos", "Count of bales per Pallet"], ["libras", "Weight (Lb)"],
+  ["lote_film", "Lot Packaging Material / Bag film"], ["lote_bale", "Lot Packaging Material / Bale"],
+  ["operador_produccion", "Production Operator"], ["montacarguista", "Forklift Operator"],
+  ["supervisor", "Shift Supervisor"], ["estibadores", "Estibador"], ["comentarios", "Comentarios"],
+  ["hora", "Hora"], ["linea", "Línea"], ["folio", "Folio"], ["bolsas", "Bolsas"],
+  ["completa", "Completa"], ["estado", "Estado"],
 ];
+const CLAVES = COLUMNAS.map((c) => c[0]);
+const COL_FOLIO = CLAVES.indexOf("folio") + 1;
+const COL_ESTADO = CLAVES.indexOf("estado") + 1;
 
 function doPost(e) {
   const datos = JSON.parse(e.postData.contents);
@@ -32,12 +43,12 @@ function doPost(e) {
     if (datos.accion === "agregar") {
       // Si el folio ya existe (reenvío), no se duplica.
       if (buscarFila(hoja, datos.tarima.folio) === -1) {
-        hoja.appendRow(COLUMNAS.map((c) => datos.tarima[c] ?? ""));
+        hoja.appendRow(CLAVES.map((c) => datos.tarima[c] ?? ""));
       }
     } else if (datos.accion === "anular") {
       const fila = buscarFila(hoja, datos.folio);
       if (fila !== -1) {
-        hoja.getRange(fila, COLUMNAS.indexOf("estado") + 1).setValue("ANULADA");
+        hoja.getRange(fila, COL_ESTADO).setValue("ANULADA");
         hoja.getRange(fila, 1, 1, COLUMNAS.length).setBackground("#f8cbad");
       }
     }
@@ -52,7 +63,7 @@ function obtenerHoja() {
   let hoja = libro.getSheetByName(NOMBRE_HOJA);
   if (!hoja) {
     hoja = libro.insertSheet(NOMBRE_HOJA);
-    hoja.appendRow(COLUMNAS.map((c) => c.replace("_", " ").toUpperCase()));
+    hoja.appendRow(COLUMNAS.map((c) => c[1]));
     hoja.getRange(1, 1, 1, COLUMNAS.length)
       .setFontWeight("bold").setFontColor("#ffffff").setBackground("#1f4e78");
     hoja.setFrozenRows(1);
@@ -63,7 +74,7 @@ function obtenerHoja() {
 function buscarFila(hoja, folio) {
   const ultima = hoja.getLastRow();
   if (ultima < 2) return -1;
-  const folios = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+  const folios = hoja.getRange(2, COL_FOLIO, ultima - 1, 1).getValues();
   for (let i = folios.length - 1; i >= 0; i--) {
     if (folios[i][0] === folio) return i + 2;
   }

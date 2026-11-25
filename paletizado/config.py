@@ -19,6 +19,16 @@ DATABASE_URL = os.environ.get(
 ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
 ADMIN_CONTRASENA = os.environ.get("ADMIN_CONTRASENA", "cambia-esta-contrasena")
 
+# --- Lote ---------------------------------------------------------------------
+# El lote se calcula solo: código de planta + día juliano (3 dígitos) + año (2 dígitos).
+# Ejemplo: 16 de noviembre de 2026 -> 02 + 320 + 26 = 0232026
+CODIGO_PLANTA = "02"
+
+# Cuándo cambia el lote en el turno de noche (PENDIENTE de confirmar en planta):
+#   "medianoche"   -> las tarimas hechas después de las 12 llevan el lote del día nuevo
+#   "inicio_turno" -> todo el turno lleva el lote del día en que empezó el turno
+LOTE_CAMBIA = "medianoche"
+
 # --- Turnos: (número, hora de inicio, hora de fin) en formato 24 h ----------
 TURNOS = [
     (1, 6, 14),

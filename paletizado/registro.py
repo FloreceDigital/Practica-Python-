@@ -1,5 +1,5 @@
 """
-Toda la lógica de tarimas, líneas y presentaciones sobre PostgreSQL.
+Toda la lógica de tarimas, líneas, presentaciones y personal sobre PostgreSQL.
 """
 
 import io
@@ -13,14 +13,42 @@ from psycopg.types.json import Jsonb
 import config
 import db
 
-# Columnas que se exportan a Excel y se mandan a Google Sheets (en este orden)
-COLUMNAS = [
-    "folio", "fecha", "hora", "turno", "linea", "presentacion", "descripcion",
-    "lote", "fardos", "bolsas", "libras", "completa", "estado", "registro_por",
+# Columnas que se exportan a Excel y se mandan a Google Sheets, en este orden.
+# Las primeras son las mismas del formulario de Google que usaban antes.
+ENCABEZADOS = [
+    ("fecha", "Fecha"),
+    ("turno", "Shift"),
+    ("producto", "Product"),
+    ("color", "Color"),
+    ("lote", "Lot No."),
+    ("numero_pallet", "Finished Pallet No."),
+    ("fardos", "Count of bales per Pallet"),
+    ("libras", "Weight (Lb)"),
+    ("lote_film", "Lot Packaging Material / Bag film"),
+    ("lote_bale", "Lot Packaging Material / Bale"),
+    ("operador_produccion", "Production Operator"),
+    ("montacarguista", "Forklift Operator"),
+    ("supervisor", "Shift Supervisor"),
+    ("estibadores", "Estibador"),
+    ("comentarios", "Comentarios"),
+    ("hora", "Hora"),
+    ("linea", "Línea"),
+    ("folio", "Folio"),
+    ("bolsas", "Bolsas"),
+    ("completa", "Completa"),
+    ("estado", "Estado"),
 ]
+COLUMNAS = [clave for clave, _ in ENCABEZADOS]
+
+ROLES = {
+    "montacargas": "Montacargas (Forklift Operator)",
+    "operador": "Operador de producción",
+    "supervisor": "Supervisor de turno",
+    "estibador": "Estibador",
+}
 
 
-# --- Turnos -----------------------------------------------------------------
+# --- Turnos y lote ------------------------------------------------------------
 
 def turno_actual(momento):
     hora = momento.hour
@@ -44,6 +72,17 @@ def inicio_turno(momento):
     return momento.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def lote_automatico(momento):
+    """Planta + día juliano + año. 16/nov/2026 -> 0232026."""
+    dia = momento if config.LOTE_CAMBIA == "medianoche" else inicio_turno(momento)
+    return f"{config.CODIGO_PLANTA}{dia.timetuple().tm_yday:03d}{dia:%y}"
+
+
+def lote_de_linea(linea, momento=None):
+    """El lote manual de la línea si lo capturaron; si no, el automático."""
+    return linea["lote_actual"] or lote_automatico(momento or datetime.now())
+
+
 # --- Utilidades ---------------------------------------------------------------
 
 def numero_limpio(valor):
@@ -61,18 +100,22 @@ def _formatear(fila):
     t["hora"] = momento.strftime("%H:%M:%S")
     t["libras"] = numero_limpio(t["libras"])
     t["completa"] = "SI" if t["completa"] else "NO"
+    t["numero_pallet"] = t["numero_pallet"] if t["numero_pallet"] is not None else ""
+    t["producto"] = f"{t['codigo_sap']} {t['descripcion']}".strip()
     return t
 
 
 _SELECT_TARIMA = """
     SELECT t.folio, t.fecha_hora, t.turno, l.nombre AS linea, l.codigo AS linea_codigo,
-           t.presentacion, t.descripcion, t.lote, t.fardos, t.bolsas, t.libras,
-           t.completa, t.estado, t.registro_por
+           t.presentacion, t.descripcion, t.codigo_sap, t.lote, t.numero_pallet,
+           t.fardos, t.bolsas, t.libras, t.completa, t.estado, t.color,
+           t.lote_film, t.lote_bale, t.operador_produccion, t.montacarguista,
+           t.supervisor, t.estibadores, t.comentarios, t.registro_por
     FROM tarimas t JOIN lineas l ON l.id = t.linea_id
 """
 
 
-# --- Líneas -------------------------------------------------------------------
+# --- Líneas y corrida -----------------------------------------------------------
 
 def lineas(solo_activas=True):
     with db.conectar() as con:
@@ -87,12 +130,38 @@ def linea_por_codigo(codigo):
         ).fetchone()
 
 
-def guardar_lote(codigo, lote):
+def guardar_corrida(codigo, datos, estibadores):
+    """Datos que el operador captura una vez y se copian a cada tarima."""
     with db.conectar() as con:
         con.execute(
-            "UPDATE lineas SET lote_actual = %s WHERE codigo = %s",
-            (lote.strip().upper(), codigo),
+            """UPDATE lineas SET lote_actual = %s, color_actual = %s, lote_film = %s,
+                   lote_bale = %s, operador_produccion = %s, supervisor = %s, estibadores = %s
+               WHERE codigo = %s""",
+            (
+                datos.get("lote_manual", "").strip().upper(),
+                datos.get("color", "").strip(),
+                datos.get("lote_film", "").strip(),
+                datos.get("lote_bale", "").strip(),
+                datos.get("operador_produccion", "").strip(),
+                datos.get("supervisor", "").strip(),
+                ", ".join(e.strip() for e in estibadores if e.strip()),
+                codigo,
+            ),
         )
+
+
+def lotes_material_recientes(columna, dias=60):
+    """Lotes de film o de bale usados últimamente, para sugerirlos en la pantalla."""
+    if columna not in ("lote_film", "lote_bale"):
+        raise ValueError(columna)
+    with db.conectar() as con:
+        filas = con.execute(
+            f"""SELECT {columna} AS valor, max(fecha_hora) AS ultimo FROM tarimas
+                WHERE {columna} <> '' AND fecha_hora > now() - %s * interval '1 day'
+                GROUP BY {columna} ORDER BY ultimo DESC LIMIT 15""",
+            (dias,),
+        ).fetchall()
+    return [f["valor"] for f in filas]
 
 
 def guardar_linea(datos, linea_id=None):
@@ -114,6 +183,39 @@ def guardar_linea(datos, linea_id=None):
             "VALUES (%s, %s, %s, %s) RETURNING id",
             valores,
         ).fetchone()["id"]
+
+
+# --- Personal -------------------------------------------------------------------
+
+def personas(rol=None, solo_activas=True):
+    condiciones, params = [], []
+    if rol:
+        condiciones.append("rol = %s")
+        params.append(rol)
+    if solo_activas:
+        condiciones.append("activa")
+    filtro = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+    with db.conectar() as con:
+        return con.execute(
+            f"SELECT * FROM personas {filtro} ORDER BY rol, nombre", params
+        ).fetchall()
+
+
+def agregar_persona(nombre, rol):
+    nombre = " ".join(nombre.split())
+    if not nombre or rol not in ROLES:
+        raise ValueError("Nombre o puesto no válido")
+    with db.conectar() as con:
+        con.execute(
+            """INSERT INTO personas (nombre, rol) VALUES (%s, %s)
+               ON CONFLICT (nombre, rol) DO UPDATE SET activa = TRUE""",
+            (nombre, rol),
+        )
+
+
+def cambiar_persona_activa(persona_id, activa):
+    with db.conectar() as con:
+        con.execute("UPDATE personas SET activa = %s WHERE id = %s", (activa, persona_id))
 
 
 # --- Presentaciones -----------------------------------------------------------
@@ -157,6 +259,7 @@ def guardar_presentacion(datos, lineas_ids, presentacion_id=None):
         datos["clave"].strip().upper(),
         datos["nombre"].strip(),
         datos.get("descripcion", "").strip(),
+        datos.get("codigo_sap", "").strip(),
         Decimal(str(datos["libras_por_bolsa"])),
         int(datos["bolsas_por_fardo"]),
         int(datos["fardos_por_tarima"]),
@@ -165,16 +268,16 @@ def guardar_presentacion(datos, lineas_ids, presentacion_id=None):
     with db.conectar() as con:
         if presentacion_id:
             con.execute(
-                """UPDATE presentaciones SET clave=%s, nombre=%s, descripcion=%s,
+                """UPDATE presentaciones SET clave=%s, nombre=%s, descripcion=%s, codigo_sap=%s,
                    libras_por_bolsa=%s, bolsas_por_fardo=%s, fardos_por_tarima=%s, activa=%s
                    WHERE id=%s""",
                 valores + (presentacion_id,),
             )
         else:
             presentacion_id = con.execute(
-                """INSERT INTO presentaciones (clave, nombre, descripcion, libras_por_bolsa,
-                   bolsas_por_fardo, fardos_por_tarima, activa)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
+                   libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima, activa)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 valores,
             ).fetchone()["id"]
 
@@ -194,16 +297,22 @@ class ErrorRegistro(Exception):
     pass
 
 
-def registrar_tarima(codigo_linea, presentacion_id, fardos=None, registro_por="Montacargas"):
+def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
+                     montacarguista="", comentarios=""):
     """Registra una tarima y regresa sus datos ya formateados.
 
     Todo pasa en una sola transacción:
     1. Se bloquea la fila de la línea (FOR UPDATE) para que dos tabletas no
-       tomen el mismo folio al mismo tiempo.
-    2. Se guarda la tarima.
-    3. Se deja el envío a Google Sheets en la cola.
+       tomen el mismo número al mismo tiempo.
+    2. Se calcula el número de tarima del turno (1, 2, 3…) y el lote.
+    3. Se guarda la tarima con los datos de la corrida (color, lotes de
+       material, operador, supervisor, estibadores).
+    4. Se deja el envío a Google Sheets en la cola.
     """
     ahora = datetime.now().replace(microsecond=0)
+    turno = turno_actual(ahora)
+    fecha_turno = inicio_turno(ahora).date()
+
     with db.conectar() as con:
         linea = con.execute(
             "SELECT * FROM lineas WHERE codigo = %s AND activa FOR UPDATE", (codigo_linea,)
@@ -225,21 +334,36 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None, registro_por="M
         if not 1 <= fardos <= p["fardos_por_tarima"]:
             raise ErrorRegistro("Cantidad de fardos no válida")
 
+        # Número de tarima del turno: el más alto del turno + 1.
+        # Las anuladas cuentan, para que nunca se repita un número ya impreso.
+        numero_pallet = con.execute(
+            """SELECT coalesce(max(numero_pallet), 0) + 1 AS n FROM tarimas
+               WHERE linea_id = %s AND fecha_turno = %s AND turno = %s""",
+            (linea["id"], fecha_turno, turno),
+        ).fetchone()["n"]
+
         numero = linea["ultimo_folio"] + 1
         folio = f"{linea['codigo']}-{numero:06d}"
         bolsas = fardos * p["bolsas_por_fardo"]
+        montacarguista = " ".join(montacarguista.split())
 
         con.execute("UPDATE lineas SET ultimo_folio = %s WHERE id = %s", (numero, linea["id"]))
         con.execute(
             """INSERT INTO tarimas (folio, linea_id, numero, presentacion_id, presentacion,
-                   descripcion, fecha_hora, turno, lote, fardos, bolsas, libras, completa,
-                   registro_por)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                   descripcion, codigo_sap, fecha_hora, fecha_turno, turno, numero_pallet,
+                   lote, fardos, bolsas, libras, completa, color, lote_film, lote_bale,
+                   operador_produccion, montacarguista, supervisor, estibadores,
+                   comentarios, registro_por)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                       %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 folio, linea["id"], numero, p["id"], p["nombre"], p["descripcion"],
-                ahora, turno_actual(ahora), linea["lote_actual"] or "SIN LOTE",
-                fardos, bolsas, bolsas * p["libras_por_bolsa"],
-                fardos == p["fardos_por_tarima"], registro_por,
+                p["codigo_sap"], ahora, fecha_turno, turno, numero_pallet,
+                lote_de_linea(linea, ahora), fardos, bolsas, bolsas * p["libras_por_bolsa"],
+                fardos == p["fardos_por_tarima"], linea["color_actual"], linea["lote_film"],
+                linea["lote_bale"], linea["operador_produccion"], montacarguista,
+                linea["supervisor"], linea["estibadores"], comentarios.strip()[:500],
+                montacarguista or "Montacargas",
             ),
         )
         tarima = _formatear(
@@ -334,7 +458,7 @@ def exportar_excel(desde, hasta, linea_codigo=None):
     libro = Workbook()
     hoja = libro.active
     hoja.title = "Tarimas"
-    hoja.append([c.replace("_", " ").upper() for c in COLUMNAS])
+    hoja.append([titulo for _, titulo in ENCABEZADOS])
     for celda in hoja[1]:
         celda.font = Font(bold=True, color="FFFFFF")
         celda.fill = PatternFill("solid", fgColor="1F4E78")
@@ -347,9 +471,10 @@ def exportar_excel(desde, hasta, linea_codigo=None):
             for celda in hoja[hoja.max_row]:
                 celda.fill = rojo
 
-    anchos = [12, 12, 10, 7, 10, 13, 20, 14, 8, 8, 9, 10, 10, 14]
-    for i, ancho in enumerate(anchos):
-        hoja.column_dimensions[chr(65 + i)].width = ancho
+    for columna in hoja.columns:
+        letra = columna[0].column_letter
+        largo = max(len(str(c.value or "")) for c in columna)
+        hoja.column_dimensions[letra].width = min(max(10, largo + 2), 45)
     hoja.freeze_panes = "A2"
     hoja.auto_filter.ref = hoja.dimensions
 

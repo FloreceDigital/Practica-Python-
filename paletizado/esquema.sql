@@ -65,3 +65,47 @@ CREATE TABLE IF NOT EXISTS sheets_pendientes (
     creado    TIMESTAMP NOT NULL DEFAULT now(),
     intentos  INTEGER NOT NULL DEFAULT 0
 );
+
+-- ---------------------------------------------------------------------------
+-- Versión 2: campos del formulario de producción (Línea 4, 10/4 lb)
+-- Se pueden correr sobre una base que ya existe: solo agregan lo que falta.
+-- ---------------------------------------------------------------------------
+
+-- Código de material de SAP de cada presentación (ej. 25000307)
+ALTER TABLE presentaciones ADD COLUMN IF NOT EXISTS codigo_sap TEXT NOT NULL DEFAULT '';
+
+-- Datos de la corrida que captura el operador una vez (no por tarima).
+-- lineas.lote_actual queda como lote MANUAL: vacío = se calcula solo.
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS color_actual        TEXT NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS lote_film           TEXT NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS lote_bale           TEXT NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS operador_produccion TEXT NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS supervisor          TEXT NOT NULL DEFAULT '';
+ALTER TABLE lineas ADD COLUMN IF NOT EXISTS estibadores         TEXT NOT NULL DEFAULT '';
+
+-- Personal que aparece en las listas (montacargas, operadores, supervisores, estibadores)
+CREATE TABLE IF NOT EXISTS personas (
+    id      SERIAL PRIMARY KEY,
+    nombre  TEXT NOT NULL,
+    rol     TEXT NOT NULL CHECK (rol IN ('montacargas', 'operador', 'supervisor', 'estibador')),
+    activa  BOOLEAN NOT NULL DEFAULT TRUE,
+    UNIQUE (nombre, rol)
+);
+
+-- Datos de cada tarima tal como pide el formulario
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS fecha_turno         DATE;      -- día en que empezó el turno
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS numero_pallet       INTEGER;   -- Finished Pallet No. (1, 2, 3… por turno)
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS codigo_sap          TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS color               TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS lote_film           TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS lote_bale           TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS operador_produccion TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS montacarguista      TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS supervisor          TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS estibadores         TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS comentarios         TEXT NOT NULL DEFAULT '';
+
+-- Un número de tarima no se repite dentro del mismo turno de la misma línea
+CREATE UNIQUE INDEX IF NOT EXISTS tarimas_pallet_turno_idx
+    ON tarimas (linea_id, fecha_turno, turno, numero_pallet)
+    WHERE numero_pallet IS NOT NULL;

@@ -1,20 +1,21 @@
 <div class="tabla-envoltura">
   <table>
     <thead>
-      <tr><th>Folio</th>{% if mostrar_linea %}<th>Línea</th>{% endif %}<th>Fecha</th><th>Hora</th><th>Turno</th>
-          <th>Presentación</th><th>Lote</th><th>Fardos</th><th>Libras</th><th>Estado</th><th></th></tr>
+      <tr><th>Pallet</th>{% if mostrar_linea %}<th>Línea</th>{% endif %}<th>Fecha</th><th>Hora</th><th>Turno</th>
+          <th>Producto</th><th>Lote</th><th>Color</th><th>Fardos</th><th>Libras</th><th>Montacargas</th><th>Estado</th><th></th></tr>
     </thead>
     <tbody>
       {% for t in ultimas %}
         <tr class="{{ 'anulada' if t.estado == 'ANULADA' }}">
-          <td>{{ t.folio }}</td>{% if mostrar_linea %}<td>{{ t.linea }}</td>{% endif %}
+          <td><b>{{ t.numero_pallet }}</b></td>{% if mostrar_linea %}<td>{{ t.linea }}</td>{% endif %}
           <td>{{ t.fecha }}</td><td>{{ t.hora }}</td><td>{{ t.turno }}</td>
-          <td>{{ t.presentacion }} · {{ t.descripcion }}</td><td>{{ t.lote }}</td><td>{{ t.fardos }}</td>
-          <td>{{ "{:,}".format(t.libras) }}</td><td>{{ t.estado }}{% if t.completa == 'NO' %} · incompleta{% endif %}</td>
+          <td>{{ t.presentacion }}</td><td>{{ t.lote }}</td><td>{{ t.color }}</td><td>{{ t.fardos }}</td>
+          <td>{{ "{:,}".format(t.libras) }}</td><td>{{ t.montacarguista }}</td>
+          <td>{{ t.estado }}{% if t.completa == 'NO' %} · incompleta{% endif %}</td>
           <td><a href="/etiqueta/{{ t.folio }}">etiqueta</a></td>
         </tr>
       {% else %}
-        <tr><td colspan="11">Aún no hay tarimas registradas.</td></tr>
+        <tr><td colspan="13">Aún no hay tarimas registradas.</td></tr>
       {% endfor %}
     </tbody>
   </table>

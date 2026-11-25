@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Personal{% endblock %}
+{% block barra %}<h1>Personal</h1><a class="cambiar" href="/admin">Volver</a>{% endblock %}
+{% block contenido %}
+  {% if mensaje %}<p class="aviso">{{ mensaje }}</p>{% endif %}
+  <form class="formulario" method="post">
+    <label>Puesto
+      <select name="rol" required>
+        {% for clave, nombre in roles.items() %}<option value="{{ clave }}">{{ nombre }}</option>{% endfor %}
+      </select></label>
+    <label>Nombres (uno por renglón)
+      <textarea name="nombres" rows="5" required></textarea></label>
+    <button type="submit">Agregar</button>
+  </form>
+
+  {% for clave, nombre_rol in roles.items() %}
+    <h2>{{ nombre_rol }}</h2>
+    <div class="tabla-envoltura"><table><tbody>
+      {% for p in personas if p.rol == clave %}
+        <tr class="{{ 'inactiva' if not p.activa }}">
+          <td>{{ p.nombre }}</td><td>{{ "Activo" if p.activa else "Inactivo" }}</td>
+          <td><form method="post" action="/admin/personas/{{ p.id }}/activa">
+            <input type="hidden" name="activa" value="{{ '0' if p.activa else '1' }}">
+            <button class="enlace" type="submit">{{ "Desactivar" if p.activa else "Activar" }}</button>
+          </form></td>
+        </tr>
+      {% else %}<tr><td>Sin personas.</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% endfor %}
+{% endblock %}
