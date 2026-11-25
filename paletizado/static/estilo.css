@@ -205,3 +205,4 @@ label.check input { width: 22px; height: 22px; }
   border: 2px solid var(--borde); border-radius: 10px; width: 100%;
 }
 button.enlace { background: none; border: none; color: var(--texto); text-decoration: underline; padding: 0; }
+button.enlace.anular { color: var(--rojo); }

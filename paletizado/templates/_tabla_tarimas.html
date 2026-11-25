@@ -12,7 +12,9 @@
           <td>{{ t.presentacion }}</td><td>{{ t.lote }}</td><td>{{ t.color }}</td><td>{{ t.fardos }}</td>
           <td>{{ "{:,}".format(t.libras) }}</td><td>{{ t.montacarguista }}</td>
           <td>{{ t.estado }}{% if t.completa == 'NO' %} · incompleta{% endif %}</td>
-          <td><a href="/etiqueta/{{ t.folio }}">etiqueta</a></td>
+          <td><a href="/etiqueta/{{ t.folio }}">etiqueta</a>
+            {% if t.estado == 'OK' %} · <button class="enlace anular" type="button"
+              data-folio="{{ t.folio }}" data-texto="tarima {{ t.numero_pallet }} de {{ t.linea }} (turno {{ t.turno }})">anular</button>{% endif %}</td>
         </tr>
       {% else %}
         <tr><td colspan="13">Aún no hay tarimas registradas.</td></tr>
@@ -20,3 +22,13 @@
     </tbody>
   </table>
 </div>
+<script>
+  // Anular una tarima registrada de más: no se borra, queda marcada como ANULADA
+  document.querySelectorAll("button.anular").forEach((b) => {
+    b.addEventListener("click", async () => {
+      if (!confirm("¿Anular la " + b.dataset.texto + "? Ya no contará en los totales.")) return;
+      const r = await fetch("/api/anular/" + encodeURIComponent(b.dataset.folio), { method: "POST" });
+      if (r.ok) location.reload(); else alert("No se pudo anular: " + ((await r.json()).error || r.status));
+    });
+  });
+</script>
