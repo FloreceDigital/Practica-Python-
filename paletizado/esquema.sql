@@ -109,3 +109,22 @@ ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS comentarios         TEXT NOT NULL D
 CREATE UNIQUE INDEX IF NOT EXISTS tarimas_pallet_turno_idx
     ON tarimas (linea_id, fecha_turno, turno, numero_pallet)
     WHERE numero_pallet IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- Versión 3: correcciones de tarimas (mismo número, dato corregido)
+-- ---------------------------------------------------------------------------
+-- Resumen legible de las correcciones (va al Excel y a Google Sheets)
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS correcciones TEXT NOT NULL DEFAULT '';
+
+-- Historial completo: cada dato que se cambió, de qué valor a cuál y por qué
+CREATE TABLE IF NOT EXISTS correcciones (
+    id          BIGSERIAL PRIMARY KEY,
+    tarima_id   BIGINT NOT NULL REFERENCES tarimas(id),
+    campo       TEXT NOT NULL,
+    antes       TEXT NOT NULL,
+    despues     TEXT NOT NULL,
+    motivo      TEXT NOT NULL,
+    fecha_hora  TIMESTAMP NOT NULL DEFAULT now(),
+    usuario     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS correcciones_tarima_idx ON correcciones (tarima_id);

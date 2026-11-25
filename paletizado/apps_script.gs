@@ -25,6 +25,7 @@ const COLUMNAS = [
   ["lote_film", "Lot Packaging Material / Bag film"], ["lote_bale", "Lot Packaging Material / Bale"],
   ["operador_produccion", "Production Operator"], ["montacarguista", "Forklift Operator"],
   ["supervisor", "Shift Supervisor"], ["estibadores", "Estibador"], ["comentarios", "Comentarios"],
+  ["correcciones", "Correcciones"],
   ["hora", "Hora"], ["linea", "Línea"], ["folio", "Folio"], ["bolsas", "Bolsas"],
   ["completa", "Completa"], ["estado", "Estado"],
 ];
@@ -43,6 +44,14 @@ function doPost(e) {
     if (datos.accion === "agregar") {
       // Si el folio ya existe (reenvío), no se duplica.
       if (buscarFila(hoja, datos.tarima.folio) === -1) {
+        hoja.appendRow(CLAVES.map((c) => datos.tarima[c] ?? ""));
+      }
+    } else if (datos.accion === "actualizar") {
+      // Corrección: se reescribe la fila de esa tarima con los datos nuevos
+      const fila = buscarFila(hoja, datos.tarima.folio);
+      if (fila !== -1) {
+        hoja.getRange(fila, 1, 1, CLAVES.length).setValues([CLAVES.map((c) => datos.tarima[c] ?? "")]);
+      } else {
         hoja.appendRow(CLAVES.map((c) => datos.tarima[c] ?? ""));
       }
     } else if (datos.accion === "anular") {

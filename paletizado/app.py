@@ -181,6 +181,20 @@ def api_reimprimir(folio):
     return jsonify(tarima=tarima, **_imprimir(tarima))
 
 
+@app.post("/api/corregir")
+def api_corregir():
+    """Corrige datos de varias tarimas (mismo número) y reimprime sus etiquetas."""
+    datos = request.get_json(force=True)
+    try:
+        tarimas = registro.corregir_tarimas(
+            datos.get("folios") or [], datos.get("cambios") or {}, str(datos.get("motivo", "")),
+        )
+    except registro.ErrorRegistro as error:
+        return jsonify(error=str(error)), 400
+    sheets.avisar()
+    return jsonify(tarimas=[{"tarima": t, **_imprimir(t)} for t in tarimas])
+
+
 @app.post("/api/anular/<folio>")
 def api_anular(folio):
     if registro.anular_tarima(folio):

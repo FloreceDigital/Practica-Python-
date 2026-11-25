@@ -206,3 +206,17 @@ label.check input { width: 22px; height: 22px; }
 }
 button.enlace { background: none; border: none; color: var(--texto); text-decoration: underline; padding: 0; }
 button.enlace.anular { color: var(--rojo); }
+
+/* --- Corregir tarimas --- */
+.acciones-tabla { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+#btn-corregir { padding: 12px 18px; border-radius: 10px; border: 2px solid var(--borde); background: var(--panel); font-weight: 700; }
+#btn-corregir:not(:disabled) { background: var(--amarillo); border-color: var(--amarillo); color: #1a1a1a; }
+#btn-corregir:disabled { opacity: 0.55; }
+.panel-corregir { max-width: none; background: var(--panel); border: 2px solid var(--amarillo); border-radius: var(--radio); padding: 18px; margin-bottom: 14px; }
+.panel-corregir h3 { margin: 0; }
+.fila-botones-form { display: flex; gap: 12px; }
+.secundario-form { background: var(--fondo) !important; border: 2px solid var(--borde) !important; }
+.error-form { color: var(--rojo); min-height: 1.2em; margin: 0; }
+.sel-tarima { width: 20px; height: 20px; accent-color: var(--amarillo); }
+.corregida { font-size: 0.75rem; color: var(--amarillo); border: 1px solid var(--amarillo); border-radius: 999px; padding: 1px 6px; }
+.aviso a { color: var(--texto); }

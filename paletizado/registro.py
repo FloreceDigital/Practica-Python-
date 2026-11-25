@@ -31,6 +31,7 @@ ENCABEZADOS = [
     ("supervisor", "Shift Supervisor"),
     ("estibadores", "Estibador"),
     ("comentarios", "Comentarios"),
+    ("correcciones", "Correcciones"),
     ("hora", "Hora"),
     ("linea", "Línea"),
     ("folio", "Folio"),
@@ -110,7 +111,7 @@ _SELECT_TARIMA = """
            t.presentacion, t.descripcion, t.codigo_sap, t.lote, t.numero_pallet,
            t.fardos, t.bolsas, t.libras, t.completa, t.estado, t.color,
            t.lote_film, t.lote_bale, t.operador_produccion, t.montacarguista,
-           t.supervisor, t.estibadores, t.comentarios, t.registro_por
+           t.supervisor, t.estibadores, t.comentarios, t.correcciones, t.registro_por
     FROM tarimas t JOIN lineas l ON l.id = t.linea_id
 """
 
@@ -375,6 +376,84 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
                 (Jsonb({"accion": "agregar", "tarima": {c: tarima[c] for c in COLUMNAS}}),),
             )
     return tarima
+
+
+# Datos que se pueden corregir y su nombre para el historial
+CAMPOS_CORREGIBLES = {
+    "lote": "Lote", "color": "Color", "lote_film": "Bag film", "lote_bale": "Bale", "fardos": "Fardos",
+}
+
+
+def corregir_tarimas(folios, cambios, motivo, usuario=""):
+    """Corrige datos de una o varias tarimas sin cambiar su número.
+
+    `cambios` = {campo: valor nuevo}; los campos vacíos no se tocan.
+    Si cambian los fardos se recalculan bolsas, libras y si va completa.
+    Cada cambio queda en la tabla `correcciones` y en el resumen de la tarima.
+    Regresa las tarimas corregidas, ya formateadas, para reimprimir su etiqueta.
+    """
+    cambios = {c: str(v).strip() for c, v in cambios.items() if c in CAMPOS_CORREGIBLES and str(v).strip()}
+    motivo = motivo.strip()
+    if not folios:
+        raise ErrorRegistro("No se eligió ninguna tarima")
+    if not cambios:
+        raise ErrorRegistro("Escribe al menos un dato correcto")
+    if not motivo:
+        raise ErrorRegistro("Escribe el motivo de la corrección")
+    if "fardos" in cambios and not cambios["fardos"].isdigit():
+        raise ErrorRegistro("Los fardos deben ser un número")
+
+    ahora = datetime.now().replace(microsecond=0)
+    corregidas = []
+    with db.conectar() as con:
+        filas = con.execute(
+            """SELECT t.*, p.bolsas_por_fardo, p.libras_por_bolsa, p.fardos_por_tarima
+               FROM tarimas t JOIN presentaciones p ON p.id = t.presentacion_id
+               WHERE t.folio = ANY(%s) AND t.estado = 'OK'
+               ORDER BY t.id FOR UPDATE OF t""",
+            (list(folios),),
+        ).fetchall()
+        if len(filas) != len(set(folios)):
+            raise ErrorRegistro("Alguna tarima no existe o está anulada")
+
+        for t in filas:
+            nuevos, notas = {}, []
+            for campo, valor in cambios.items():
+                if campo == "fardos":
+                    valor = int(valor)
+                    if not 1 <= valor <= t["fardos_por_tarima"]:
+                        raise ErrorRegistro(
+                            f"Los fardos de {t['presentacion']} van de 1 a {t['fardos_por_tarima']}")
+                if str(t[campo]) == str(valor):
+                    continue
+                nuevos[campo] = valor
+                notas.append(f"{CAMPOS_CORREGIBLES[campo]} {t[campo] or '—'} → {valor}")
+                con.execute(
+                    """INSERT INTO correcciones (tarima_id, campo, antes, despues, motivo, fecha_hora, usuario)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (t["id"], campo, str(t[campo]), str(valor), motivo, ahora, usuario),
+                )
+            if not nuevos:
+                continue
+            if "fardos" in nuevos:
+                nuevos["bolsas"] = nuevos["fardos"] * t["bolsas_por_fardo"]
+                nuevos["libras"] = nuevos["bolsas"] * t["libras_por_bolsa"]
+                nuevos["completa"] = nuevos["fardos"] == t["fardos_por_tarima"]
+            nota = f"{ahora:%Y-%m-%d %H:%M}: {', '.join(notas)} ({motivo})"
+            nuevos["correcciones"] = f"{t['correcciones']} | {nota}" if t["correcciones"] else nota
+            columnas = ", ".join(f"{c} = %s" for c in nuevos)
+            con.execute(f"UPDATE tarimas SET {columnas} WHERE id = %s", (*nuevos.values(), t["id"]))
+
+            tarima = _formatear(
+                con.execute(_SELECT_TARIMA + " WHERE t.id = %s", (t["id"],)).fetchone()
+            )
+            corregidas.append(tarima)
+            if config.SHEETS_URL:
+                con.execute(
+                    "INSERT INTO sheets_pendientes (mensaje) VALUES (%s)",
+                    (Jsonb({"accion": "actualizar", "tarima": {c: tarima[c] for c in COLUMNAS}}),),
+                )
+    return corregidas
 
 
 def buscar_tarima(folio):

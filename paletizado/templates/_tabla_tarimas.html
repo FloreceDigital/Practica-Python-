@@ -1,13 +1,37 @@
+<div class="acciones-tabla">
+  <button type="button" id="btn-corregir" disabled>Corregir seleccionadas</button>
+  <span class="nota">Marca las tarimas que salieron con un dato equivocado. Conservan su mismo número.</span>
+</div>
+<form id="panel-corregir" class="formulario panel-corregir" hidden>
+  <h3 id="corregir-titulo">Corregir tarimas</h3>
+  <p class="nota">Llena solo lo que hay que cambiar; lo vacío se queda igual.</p>
+  <div class="fila-campos">
+    <label>Lote correcto <input name="lote" inputmode="numeric" placeholder="Sin cambio"></label>
+    <label>Color correcto <input name="color" inputmode="numeric" placeholder="Sin cambio"></label>
+    <label>Fardos correctos <input name="fardos" inputmode="numeric" placeholder="Sin cambio"></label>
+    <label>Bag film correcto <input name="lote_film" inputmode="numeric" placeholder="Sin cambio"></label>
+    <label>Bale correcto <input name="lote_bale" inputmode="numeric" placeholder="Sin cambio"></label>
+  </div>
+  <label>Motivo (obligatorio) <input name="motivo" required placeholder="ej. Lote mal capturado"></label>
+  <p class="error-form" id="corregir-error" role="alert"></p>
+  <div class="fila-botones-form">
+    <button type="submit">Guardar corrección</button>
+    <button type="button" class="secundario-form" id="corregir-cancelar">Cancelar</button>
+  </div>
+</form>
+<div id="corregidas" class="aviso" hidden></div>
 <div class="tabla-envoltura">
   <table>
     <thead>
-      <tr><th>Pallet</th>{% if mostrar_linea %}<th>Línea</th>{% endif %}<th>Fecha</th><th>Hora</th><th>Turno</th>
+      <tr><th></th><th>Pallet</th>{% if mostrar_linea %}<th>Línea</th>{% endif %}<th>Fecha</th><th>Hora</th><th>Turno</th>
           <th>Producto</th><th>Lote</th><th>Color</th><th>Fardos</th><th>Libras</th><th>Montacargas</th><th>Estado</th><th></th></tr>
     </thead>
     <tbody>
       {% for t in ultimas %}
         <tr class="{{ 'anulada' if t.estado == 'ANULADA' }}">
-          <td><b>{{ t.numero_pallet }}</b></td>{% if mostrar_linea %}<td>{{ t.linea }}</td>{% endif %}
+          <td>{% if t.estado == 'OK' %}<input type="checkbox" class="sel-tarima" value="{{ t.folio }}"
+                data-texto="{{ t.numero_pallet }} (turno {{ t.turno }})" aria-label="Seleccionar tarima {{ t.numero_pallet }}">{% endif %}</td>
+          <td><b>{{ t.numero_pallet }}</b>{% if t.correcciones %} <span class="corregida" title="{{ t.correcciones }}">corregida</span>{% endif %}</td>{% if mostrar_linea %}<td>{{ t.linea }}</td>{% endif %}
           <td>{{ t.fecha }}</td><td>{{ t.hora }}</td><td>{{ t.turno }}</td>
           <td>{{ t.presentacion }}</td><td>{{ t.lote }}</td><td>{{ t.color }}</td><td>{{ t.fardos }}</td>
           <td>{{ "{:,}".format(t.libras) }}</td><td>{{ t.montacarguista }}</td>
@@ -17,7 +41,7 @@
               data-folio="{{ t.folio }}" data-texto="tarima {{ t.numero_pallet }} de {{ t.linea }} (turno {{ t.turno }})">anular</button>{% endif %}</td>
         </tr>
       {% else %}
-        <tr><td colspan="13">Aún no hay tarimas registradas.</td></tr>
+        <tr><td colspan="14">Aún no hay tarimas registradas.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -30,5 +54,47 @@
       const r = await fetch("/api/anular/" + encodeURIComponent(b.dataset.folio), { method: "POST" });
       if (r.ok) location.reload(); else alert("No se pudo anular: " + ((await r.json()).error || r.status));
     });
+  });
+
+  // Corregir: mismo número de tarima, dato corregido, etiqueta nueva
+  const casillas = [...document.querySelectorAll(".sel-tarima")];
+  const btnCorregir = document.getElementById("btn-corregir");
+  const panel = document.getElementById("panel-corregir");
+  const elegidas = () => casillas.filter((c) => c.checked);
+  casillas.forEach((c) => c.addEventListener("change", () => {
+    const n = elegidas().length;
+    btnCorregir.disabled = n === 0;
+    btnCorregir.textContent = n ? `Corregir seleccionadas (${n})` : "Corregir seleccionadas";
+    if (!n) panel.hidden = true;
+  }));
+  btnCorregir.addEventListener("click", () => {
+    document.getElementById("corregir-titulo").textContent =
+      "Corregir tarimas: " + elegidas().map((c) => c.dataset.texto).join(", ");
+    panel.reset(); document.getElementById("corregir-error").textContent = "";
+    panel.hidden = false; panel.querySelector("input").focus();
+  });
+  document.getElementById("corregir-cancelar").addEventListener("click", () => { panel.hidden = true; });
+  panel.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(panel);
+    const cambios = {};
+    for (const campo of ["lote", "color", "fardos", "lote_film", "lote_bale"]) cambios[campo] = f.get(campo);
+    const r = await fetch("/api/corregir", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folios: elegidas().map((c) => c.value), cambios, motivo: f.get("motivo") }),
+    });
+    const datos = await r.json();
+    if (!r.ok) { document.getElementById("corregir-error").textContent = datos.error; return; }
+    // Etiquetas nuevas: si la línea tiene impresora ya salieron; si no, se abren para imprimirlas
+    const aviso = document.getElementById("corregidas");
+    aviso.textContent = `${datos.tarimas.length} tarima(s) corregida(s). Etiquetas nuevas: `;
+    datos.tarimas.forEach((x, i) => {
+      const a = document.createElement("a");
+      a.href = "/etiqueta/" + encodeURIComponent(x.tarima.folio); a.target = "_blank";
+      a.textContent = (i ? ", " : "") + "Pallet " + x.tarima.numero_pallet + (x.impreso ? " (impresa)" : "");
+      aviso.appendChild(a);
+    });
+    aviso.appendChild(document.createTextNode(". La tabla se actualiza al recargar la página."));
+    aviso.hidden = false; panel.hidden = true;
   });
 </script>
