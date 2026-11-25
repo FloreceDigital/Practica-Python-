@@ -46,6 +46,22 @@ def datos_iniciales(con):
             (pid,),
         )
         print("Se dio de alta la presentación 25000307 ZULKA PURE CANE SUGAR 10/4 LBS (asignada a L4).")
+
+    # 5/8 lb: fardo de 5 bolsas de 8 lb; tarima de 6 camas x 9 fardos = 54 fardos
+    # (código SAP pendiente: se captura después en /admin)
+    nueva = con.execute(
+        """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
+               libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima)
+           VALUES ('5-8LB', '5/8 lb', 'ZULKA PURE CANE SUGAR 5/8 LBS', '', 8, 5, 54)
+           ON CONFLICT (clave) DO NOTHING RETURNING id"""
+    ).fetchone()
+    if nueva:
+        con.execute(
+            """INSERT INTO linea_presentacion (linea_id, presentacion_id)
+               SELECT id, %s FROM lineas WHERE codigo = 'L4'""",
+            (nueva["id"],),
+        )
+        print("Se dio de alta la presentación 5/8 lb (54 fardos, asignada a L4).")
         print("Las demás presentaciones se dan de alta en /admin.")
 
 
