@@ -51,8 +51,9 @@
         <input name="estibadores" placeholder="ej. Eddy, Mauricio"></label>
     </fieldset>
 
-    <label>Lote manual <span class="nota">(déjalo vacío para usar el automático: <b>{{ lote_auto }}</b>)</span>
-      <input name="lote_manual" value="{{ linea.lote_actual }}" inputmode="numeric"></label>
+    <label>Lote: se calcula solo (hoy <b>{{ lote_auto }}</b>)
+      <input name="lote_manual" value="{{ linea.lote_actual }}" inputmode="numeric"
+             placeholder="Escribe otro lote solo si es diferente"></label>
 
     <button type="submit">Guardar datos de la corrida</button>
   </form>
