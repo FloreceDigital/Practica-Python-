@@ -195,7 +195,9 @@ def api_corregir():
     return jsonify(tarimas=[{"tarima": t, **_imprimir(t)} for t in tarimas])
 
 
-@app.post("/api/anular/<folio>")
+# Anular ya no aparece en las pantallas: queda solo para administración
+# (la ruta empieza con /admin, así que pide usuario y contraseña).
+@app.post("/admin/api/anular/<folio>")
 def api_anular(folio):
     if registro.anular_tarima(folio):
         sheets.avisar()

@@ -72,7 +72,6 @@
       <button class="btn-grande" id="btn-listo">LISTO</button>
       <div class="fila-botones">
         <button class="btn-texto" id="btn-reimprimir">Reimprimir</button>
-        <button class="btn-texto peligro" id="btn-anular">Anular</button>
       </div>
     </section>
 {% endblock %}
@@ -220,12 +219,6 @@
       } else {
         $("listo-error").textContent = datos.impreso ? "Reimpresa" : datos.mensaje;
       }
-    };
-
-    $("btn-anular").onclick = async () => {
-      if (!confirm("¿Anular esta tarima (" + $("listo-folio").textContent + ")?")) return;
-      await fetch("/api/anular/" + encodeURIComponent(ultimo), { method: "POST" });
-      inicio();
     };
 
     // Si regresa de imprimir la etiqueta en el navegador, mostrar el paso 3
