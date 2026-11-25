@@ -64,6 +64,38 @@ def datos_iniciales(con):
         print("Se dio de alta la presentación 5/8 lb (54 fardos, asignada a L2).")
         print("Las demás presentaciones se dan de alta en /admin.")
 
+    # 350/4 lb: bin de 350 bolsas de 4 lb (1,400 lb), se corre en las Líneas 4 y 2
+    nueva = con.execute(
+        """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
+               libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima, unidad)
+           VALUES ('25000312', '350/4 lb', 'ZULKA PURE CANE SUGAR 350/4 LBS BIN', '25000312',
+                   4, 350, 1, 'bin')
+           ON CONFLICT (clave) DO NOTHING RETURNING id"""
+    ).fetchone()
+    if nueva:
+        con.execute(
+            """INSERT INTO linea_presentacion (linea_id, presentacion_id)
+               SELECT id, %s FROM lineas WHERE codigo IN ('L4', 'L2')""",
+            (nueva["id"],),
+        )
+        print("Se dio de alta la presentación 350/4 lb (bin, asignada a L4 y L2).")
+
+    # 4/10 lb: caja de 4 bolsas de 10 lb; tarima de 4 pisos x 11 cajas = 44 cajas (Línea 3)
+    # (código SAP pendiente: se captura después en /admin)
+    nueva = con.execute(
+        """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
+               libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima, unidad)
+           VALUES ('4-10LB', '4/10 lb', 'ZULKA PURE CANE SUGAR 4/10 LBS', '', 10, 4, 44, 'caja')
+           ON CONFLICT (clave) DO NOTHING RETURNING id"""
+    ).fetchone()
+    if nueva:
+        con.execute(
+            """INSERT INTO linea_presentacion (linea_id, presentacion_id)
+               SELECT id, %s FROM lineas WHERE codigo = 'L3'""",
+            (nueva["id"],),
+        )
+        print("Se dio de alta la presentación 4/10 lb (44 cajas, asignada a L3).")
+
 
 def importar_csv(con, ruta):
     """Pasa las tarimas del CSV de la versión anterior (una sola línea)."""

@@ -47,8 +47,14 @@ def zpl(tarima):
 
     incompleta = "" if t["completa"] == "SI" else (
         f"^FO{p(40)},{p(520)}^A0N,{p(40)},{p(40)}^FR^GB{p(732)},{p(50)},{p(50)}^FS"
-        f"^FO{p(60)},{p(526)}^A0N,{p(40)},{p(40)}^FR^FDTARIMA INCOMPLETA^FS"
+        f"^FO{p(60)},{p(526)}^A0N,{p(40)},{p(40)}^FR^FD{'BIN INCOMPLETO' if t.get('unidad') == 'bin' else 'TARIMA INCOMPLETA'}^FS"
     )
+    unidad = t.get("unidad", "fardo")
+    if unidad == "bin":
+        cantidad, extra = f"Bolsas: {t['bolsas']}", f"Caja: {t.get('lote_caja') or '-'}"
+    else:
+        cantidad = f"{'Cajas' if unidad == 'caja' else 'Fardos'}: {t['fardos']}"
+        extra = f"Bolsas: {t['bolsas']}"
     return f"""^XA
 ^CI28
 ^PW{p(812)}
@@ -62,10 +68,10 @@ def zpl(tarima):
 ^FO{p(40)},{p(380)}^GB{p(732)},4,4^FS
 ^FO{p(40)},{p(410)}^A0N,{p(40)},{p(36)}^FB{p(732)},2,0,L^FD{t['codigo_sap']} {t['descripcion']}^FS
 {incompleta}
-^FO{p(40)},{p(600)}^A0N,{p(42)},{p(42)}^FDFardos: {t['fardos']}^FS
+^FO{p(40)},{p(600)}^A0N,{p(42)},{p(42)}^FD{cantidad}^FS
 ^FO{p(420)},{p(600)}^A0N,{p(42)},{p(42)}^FDColor: {t['color'] or '-'}^FS
 ^FO{p(40)},{p(660)}^A0N,{p(42)},{p(42)}^FDLibras: {t['libras']}^FS
-^FO{p(420)},{p(660)}^A0N,{p(42)},{p(42)}^FDBolsas: {t['bolsas']}^FS
+^FO{p(420)},{p(660)}^A0N,{p(42)},{p(42)}^FD{extra}^FS
 ^FO{p(40)},{p(1000)}^A0N,{p(34)},{p(34)}^FD{t['fecha']} {t['hora'][:5]}^FS
 ^FO{p(40)},{p(1045)}^A0N,{p(34)},{p(34)}^FD{t['folio']}^FS
 ^FO{p(500)},{p(860)}^BQN,2,{p(7)}^FDLA,{_sin_acentos(texto_qr(tarima))}^FS

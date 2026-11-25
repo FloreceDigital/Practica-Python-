@@ -128,3 +128,13 @@ CREATE TABLE IF NOT EXISTS correcciones (
     usuario     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS correcciones_tarima_idx ON correcciones (tarima_id);
+
+-- ---------------------------------------------------------------------------
+-- Versión 4: presentaciones en bin y lote de caja
+-- ---------------------------------------------------------------------------
+-- unidad 'fardo': la tarima lleva fardos_por_tarima fardos de bolsas_por_fardo bolsas
+-- unidad 'caja' : igual que fardo pero en cajas (usa lote de caja en vez de bale)
+-- unidad 'bin'  : un bin por etiqueta, con bolsas_por_fardo bolsas (fardos_por_tarima = 1)
+ALTER TABLE presentaciones ADD COLUMN IF NOT EXISTS unidad TEXT NOT NULL DEFAULT 'fardo';
+ALTER TABLE lineas  ADD COLUMN IF NOT EXISTS lote_caja TEXT NOT NULL DEFAULT '';
+ALTER TABLE tarimas ADD COLUMN IF NOT EXISTS lote_caja TEXT NOT NULL DEFAULT '';

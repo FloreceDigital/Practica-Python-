@@ -26,6 +26,12 @@
         <input name="lote_film" value="{{ linea.lote_film }}" list="lotes-film" inputmode="numeric"></label>
       <label>Lot Packaging Material / Bale
         <input name="lote_bale" value="{{ linea.lote_bale }}" list="lotes-bale" inputmode="numeric"></label>
+      {% if usa_caja %}
+      <label>Lot Packaging Material / Box (caja)
+        <input name="lote_caja" value="{{ linea.lote_caja }}" inputmode="numeric"></label>
+      {% else %}
+      <input type="hidden" name="lote_caja" value="{{ linea.lote_caja }}">
+      {% endif %}
     </div>
     <datalist id="lotes-film">{% for v in lotes_film %}<option value="{{ v }}">{% endfor %}</datalist>
     <datalist id="lotes-bale">{% for v in lotes_bale %}<option value="{{ v }}">{% endfor %}</datalist>

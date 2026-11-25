@@ -75,6 +75,7 @@ def operador(codigo):
         "operador.html",
         linea=linea,
         lote_auto=registro.lote_automatico(datetime.now()),
+        usa_caja=any(p["unidad"] in ("caja", "bin") for p in registro.presentaciones_de_linea(linea["id"])),
         lote=registro.lote_de_linea(linea),
         guardado=request.args.get("guardado") == "1",
         operadores=[p["nombre"] for p in registro.personas("operador")],
@@ -166,6 +167,7 @@ def api_registrar():
             int(datos.get("presentacion_id", 0)),
             int(fardos) if fardos is not None else None,
             montacarguista=str(datos.get("montacarguista", ""))[:100],
+            bolsas=int(datos["bolsas"]) if datos.get("bolsas") is not None else None,
             comentarios=str(datos.get("comentarios", ""))[:500],
         )
     except (registro.ErrorRegistro, ValueError) as error:

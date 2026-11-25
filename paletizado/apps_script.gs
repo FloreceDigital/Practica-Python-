@@ -23,6 +23,7 @@ const COLUMNAS = [
   ["lote", "Lot No."], ["numero_pallet", "Finished Pallet No."],
   ["fardos", "Count of bales per Pallet"], ["libras", "Weight (Lb)"],
   ["lote_film", "Lot Packaging Material / Bag film"], ["lote_bale", "Lot Packaging Material / Bale"],
+  ["lote_caja", "Lot Packaging Material / Box"],
   ["operador_produccion", "Production Operator"], ["montacarguista", "Forklift Operator"],
   ["supervisor", "Shift Supervisor"], ["estibadores", "Estibador"], ["comentarios", "Comentarios"],
   ["correcciones", "Correcciones"],

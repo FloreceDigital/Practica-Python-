@@ -26,6 +26,7 @@ ENCABEZADOS = [
     ("libras", "Weight (Lb)"),
     ("lote_film", "Lot Packaging Material / Bag film"),
     ("lote_bale", "Lot Packaging Material / Bale"),
+    ("lote_caja", "Lot Packaging Material / Box"),
     ("operador_produccion", "Production Operator"),
     ("montacarguista", "Forklift Operator"),
     ("supervisor", "Shift Supervisor"),
@@ -110,9 +111,10 @@ _SELECT_TARIMA = """
     SELECT t.folio, t.fecha_hora, t.turno, l.nombre AS linea, l.codigo AS linea_codigo,
            t.presentacion, t.descripcion, t.codigo_sap, t.lote, t.numero_pallet,
            t.fardos, t.bolsas, t.libras, t.completa, t.estado, t.color,
-           t.lote_film, t.lote_bale, t.operador_produccion, t.montacarguista,
+           t.lote_film, t.lote_bale, t.lote_caja, pr.unidad, t.operador_produccion, t.montacarguista,
            t.supervisor, t.estibadores, t.comentarios, t.correcciones, t.registro_por
     FROM tarimas t JOIN lineas l ON l.id = t.linea_id
+    JOIN presentaciones pr ON pr.id = t.presentacion_id
 """
 
 
@@ -136,13 +138,15 @@ def guardar_corrida(codigo, datos, estibadores):
     with db.conectar() as con:
         con.execute(
             """UPDATE lineas SET lote_actual = %s, color_actual = %s, lote_film = %s,
-                   lote_bale = %s, operador_produccion = %s, supervisor = %s, estibadores = %s
+                   lote_bale = %s, lote_caja = %s, operador_produccion = %s, supervisor = %s,
+                   estibadores = %s
                WHERE codigo = %s""",
             (
                 datos.get("lote_manual", "").strip().upper(),
                 datos.get("color", "").strip(),
                 datos.get("lote_film", "").strip(),
                 datos.get("lote_bale", "").strip(),
+                datos.get("lote_caja", "").strip(),
                 datos.get("operador_produccion", "").strip(),
                 datos.get("supervisor", "").strip(),
                 ", ".join(e.strip() for e in estibadores if e.strip()),
@@ -264,21 +268,23 @@ def guardar_presentacion(datos, lineas_ids, presentacion_id=None):
         Decimal(str(datos["libras_por_bolsa"])),
         int(datos["bolsas_por_fardo"]),
         int(datos["fardos_por_tarima"]),
+        datos.get("unidad") if datos.get("unidad") in ("fardo", "caja", "bin") else "fardo",
         bool(datos.get("activa")),
     )
     with db.conectar() as con:
         if presentacion_id:
             con.execute(
                 """UPDATE presentaciones SET clave=%s, nombre=%s, descripcion=%s, codigo_sap=%s,
-                   libras_por_bolsa=%s, bolsas_por_fardo=%s, fardos_por_tarima=%s, activa=%s
+                   libras_por_bolsa=%s, bolsas_por_fardo=%s, fardos_por_tarima=%s, unidad=%s,
+                   activa=%s
                    WHERE id=%s""",
                 valores + (presentacion_id,),
             )
         else:
             presentacion_id = con.execute(
                 """INSERT INTO presentaciones (clave, nombre, descripcion, codigo_sap,
-                   libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima, activa)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                   libras_por_bolsa, bolsas_por_fardo, fardos_por_tarima, unidad, activa)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                 valores,
             ).fetchone()["id"]
 
@@ -299,7 +305,7 @@ class ErrorRegistro(Exception):
 
 
 def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
-                     montacarguista="", comentarios=""):
+                     montacarguista="", comentarios="", bolsas=None):
     """Registra una tarima y regresa sus datos ya formateados.
 
     Todo pasa en una sola transacción:
@@ -330,10 +336,22 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
         if p is None:
             raise ErrorRegistro("Presentación no válida para esta línea")
 
-        if fardos is None:
-            fardos = p["fardos_por_tarima"]
-        if not 1 <= fardos <= p["fardos_por_tarima"]:
-            raise ErrorRegistro("Cantidad de fardos no válida")
+        es_bin = p["unidad"] == "bin"
+        if es_bin:
+            # Un bin por etiqueta; si va incompleto se indica cuántas bolsas lleva
+            fardos = 1
+            if bolsas is None:
+                bolsas = p["bolsas_por_fardo"]
+            if not 1 <= bolsas <= p["bolsas_por_fardo"]:
+                raise ErrorRegistro("Cantidad de bolsas no válida")
+            completa = bolsas == p["bolsas_por_fardo"]
+        else:
+            if fardos is None:
+                fardos = p["fardos_por_tarima"]
+            if not 1 <= fardos <= p["fardos_por_tarima"]:
+                raise ErrorRegistro("Cantidad de fardos no válida")
+            bolsas = fardos * p["bolsas_por_fardo"]
+            completa = fardos == p["fardos_por_tarima"]
 
         # Número de tarima del turno: el más alto del turno + 1.
         # Las anuladas cuentan, para que nunca se repita un número ya impreso.
@@ -345,7 +363,6 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
 
         numero = linea["ultimo_folio"] + 1
         folio = f"{linea['codigo']}-{numero:06d}"
-        bolsas = fardos * p["bolsas_por_fardo"]
         montacarguista = " ".join(montacarguista.split())
 
         con.execute("UPDATE lineas SET ultimo_folio = %s WHERE id = %s", (numero, linea["id"]))
@@ -353,16 +370,19 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
             """INSERT INTO tarimas (folio, linea_id, numero, presentacion_id, presentacion,
                    descripcion, codigo_sap, fecha_hora, fecha_turno, turno, numero_pallet,
                    lote, fardos, bolsas, libras, completa, color, lote_film, lote_bale,
-                   operador_produccion, montacarguista, supervisor, estibadores,
+                   lote_caja, operador_produccion, montacarguista, supervisor, estibadores,
                    comentarios, registro_por)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                       %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                       %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 folio, linea["id"], numero, p["id"], p["nombre"], p["descripcion"],
                 p["codigo_sap"], ahora, fecha_turno, turno, numero_pallet,
                 lote_de_linea(linea, ahora), fardos, bolsas, bolsas * p["libras_por_bolsa"],
-                fardos == p["fardos_por_tarima"], linea["color_actual"], linea["lote_film"],
-                linea["lote_bale"], linea["operador_produccion"], montacarguista,
+                completa, linea["color_actual"], linea["lote_film"],
+                # fardo -> lote de bale; caja y bin -> lote de caja
+                linea["lote_bale"] if p["unidad"] == "fardo" else "",
+                linea["lote_caja"] if p["unidad"] in ("caja", "bin") else "",
+                linea["operador_produccion"], montacarguista,
                 linea["supervisor"], linea["estibadores"], comentarios.strip()[:500],
                 montacarguista or "Montacargas",
             ),
@@ -380,7 +400,8 @@ def registrar_tarima(codigo_linea, presentacion_id, fardos=None,
 
 # Datos que se pueden corregir y su nombre para el historial
 CAMPOS_CORREGIBLES = {
-    "lote": "Lote", "color": "Color", "lote_film": "Bag film", "lote_bale": "Bale", "fardos": "Fardos",
+    "lote": "Lote", "color": "Color", "lote_film": "Bag film", "lote_bale": "Bale",
+    "lote_caja": "Caja", "fardos": "Fardos",
 }
 
 
@@ -407,7 +428,7 @@ def corregir_tarimas(folios, cambios, motivo, usuario=""):
     corregidas = []
     with db.conectar() as con:
         filas = con.execute(
-            """SELECT t.*, p.bolsas_por_fardo, p.libras_por_bolsa, p.fardos_por_tarima
+            """SELECT t.*, p.bolsas_por_fardo, p.libras_por_bolsa, p.fardos_por_tarima, p.unidad
                FROM tarimas t JOIN presentaciones p ON p.id = t.presentacion_id
                WHERE t.folio = ANY(%s) AND t.estado = 'OK'
                ORDER BY t.id FOR UPDATE OF t""",
@@ -418,16 +439,24 @@ def corregir_tarimas(folios, cambios, motivo, usuario=""):
 
         for t in filas:
             nuevos, notas = {}, []
+            es_bin = t["unidad"] == "bin"
             for campo, valor in cambios.items():
                 if campo == "fardos":
                     valor = int(valor)
-                    if not 1 <= valor <= t["fardos_por_tarima"]:
+                    if es_bin:
+                        # En el bin la cantidad que se corrige son las bolsas
+                        campo = "bolsas"
+                        if not 1 <= valor <= t["bolsas_por_fardo"]:
+                            raise ErrorRegistro(
+                                f"Las bolsas del bin {t['presentacion']} van de 1 a {t['bolsas_por_fardo']}")
+                    elif not 1 <= valor <= t["fardos_por_tarima"]:
                         raise ErrorRegistro(
                             f"Los fardos de {t['presentacion']} van de 1 a {t['fardos_por_tarima']}")
                 if str(t[campo]) == str(valor):
                     continue
                 nuevos[campo] = valor
-                notas.append(f"{CAMPOS_CORREGIBLES[campo]} {t[campo] or '—'} → {valor}")
+                nombre = "Bolsas" if campo == "bolsas" else CAMPOS_CORREGIBLES[campo]
+                notas.append(f"{nombre} {t[campo] or '—'} → {valor}")
                 con.execute(
                     """INSERT INTO correcciones (tarima_id, campo, antes, despues, motivo, fecha_hora, usuario)
                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
@@ -439,6 +468,9 @@ def corregir_tarimas(folios, cambios, motivo, usuario=""):
                 nuevos["bolsas"] = nuevos["fardos"] * t["bolsas_por_fardo"]
                 nuevos["libras"] = nuevos["bolsas"] * t["libras_por_bolsa"]
                 nuevos["completa"] = nuevos["fardos"] == t["fardos_por_tarima"]
+            elif "bolsas" in nuevos:
+                nuevos["libras"] = nuevos["bolsas"] * t["libras_por_bolsa"]
+                nuevos["completa"] = nuevos["bolsas"] == t["bolsas_por_fardo"]
             nota = f"{ahora:%Y-%m-%d %H:%M}: {', '.join(notas)} ({motivo})"
             nuevos["correcciones"] = f"{t['correcciones']} | {nota}" if t["correcciones"] else nota
             columnas = ", ".join(f"{c} = %s" for c in nuevos)
@@ -525,7 +557,7 @@ LB_TON_METRICA = 2204.62   # libras en una tonelada métrica
 
 ENCABEZADOS_TURNO = [
     ("fecha", "Fecha"), ("turno", "Turno"), ("linea", "Línea"), ("tarimas", "Tarimas"),
-    ("incompletas", "Tarimas incompletas"), ("fardos", "Fardos"), ("libras", "Libras"),
+    ("incompletas", "Tarimas incompletas"), ("fardos", "Fardos o cajas"), ("libras", "Libras"),
     ("ton_metricas", "Toneladas métricas"),
     ("anuladas", "Tarimas anuladas"),
 ]
@@ -544,10 +576,11 @@ def resumen_por_turno(desde, hasta, linea_codigo=None):
             f"""SELECT t.fecha_turno, t.turno, l.nombre AS linea,
                        count(*) FILTER (WHERE t.estado = 'OK') AS tarimas,
                        count(*) FILTER (WHERE t.estado = 'OK' AND NOT t.completa) AS incompletas,
-                       coalesce(sum(t.fardos) FILTER (WHERE t.estado = 'OK'), 0) AS fardos,
+                       coalesce(sum(t.fardos) FILTER (WHERE t.estado = 'OK' AND pr.unidad <> 'bin'), 0) AS fardos,
                        coalesce(sum(t.libras) FILTER (WHERE t.estado = 'OK'), 0) AS libras,
                        count(*) FILTER (WHERE t.estado = 'ANULADA') AS anuladas
                 FROM tarimas t JOIN lineas l ON l.id = t.linea_id
+                JOIN presentaciones pr ON pr.id = t.presentacion_id
                 {filtro}
                 GROUP BY t.fecha_turno, t.turno, l.nombre
                 ORDER BY t.fecha_turno DESC, t.turno DESC, l.nombre""",

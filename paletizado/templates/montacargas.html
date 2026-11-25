@@ -33,12 +33,17 @@
       <p class="pregunta">Toca la presentación de la tarima:</p>
       <div class="presentaciones">
         {% for p in presentaciones %}
-          <button class="presentacion" data-id="{{ p.id }}"
+          {% set es_bin = p.unidad == "bin" %}
+          {% set palabra = "cajas" if p.unidad == "caja" else "fardos" %}
+          <button class="presentacion" data-id="{{ p.id }}" data-unidad="{{ p.unidad }}"
                   data-nombre="{{ p.nombre }}" data-desc="{{ p.descripcion }}"
-                  data-max="{{ p.fardos_por_tarima }}">
+                  data-max="{{ p.bolsas_por_fardo if es_bin else p.fardos_por_tarima }}"
+                  data-paso="{{ 10 if es_bin else 1 }}" data-palabra="{{ 'bolsas' if es_bin else palabra }}">
             <div class="nombre">{{ p.nombre }}</div>
             <div class="desc">{{ p.descripcion }}</div>
-            <div class="cant">{{ p.fardos_por_tarima }} fardos por tarima</div>
+            {% set lb = p.fardos_por_tarima * p.bolsas_por_fardo * p.libras_por_bolsa %}
+            <div class="cant">{% if es_bin %}Bin de {{ p.bolsas_por_fardo }} bolsas{% else %}{{ p.fardos_por_tarima }} {{ palabra }} por tarima{% endif %}
+              · {{ "{:,.0f}".format(lb) }} lb</div>
           </button>
         {% else %}
           <p>Esta línea no tiene presentaciones asignadas. Dalas de alta en /admin.</p>
@@ -157,8 +162,9 @@
 
     document.querySelectorAll("#paso-elegir .presentacion").forEach((b) => {
       b.onclick = () => {
-        seleccion = { ...b.dataset, max: Number(b.dataset.max) };
-        fardos = incompleta ? seleccion.max - 1 : seleccion.max;
+        // En el bin el contador de "incompleta" es de bolsas (de 10 en 10); si no, de fardos o cajas
+        seleccion = { ...b.dataset, max: Number(b.dataset.max), paso: Number(b.dataset.paso) };
+        fardos = incompleta ? seleccion.max - seleccion.paso : seleccion.max;
         $("conf-resumen").textContent = seleccion.nombre + " · " + seleccion.desc;
         $("conf-fardos").classList.toggle("oculto", !incompleta);
         actualizarFardos();
@@ -169,12 +175,15 @@
     // Paso 2
     function actualizarFardos() {
       $("fardos-num").textContent = fardos;
+      const esBin = seleccion.unidad === "bin";
       $("conf-detalle").textContent = incompleta
-        ? "Tarima INCOMPLETA: ¿cuántos fardos lleva?"
-        : "Tarima completa: " + seleccion.max + " fardos";
+        ? (esBin ? "Bin INCOMPLETO" : "Tarima INCOMPLETA") + ": indica cuántas " + seleccion.palabra + " lleva"
+        : (esBin ? "Bin completo: " : "Tarima completa: ") + seleccion.max + " " + seleccion.palabra;
     }
-    $("menos").onclick = () => { if (fardos > 1) { fardos--; actualizarFardos(); } };
-    $("mas").onclick = () => { if (fardos < seleccion.max) { fardos++; actualizarFardos(); } };
+    $("menos").onclick = () => { if (fardos > seleccion.paso) { fardos -= seleccion.paso; actualizarFardos(); } };
+    $("mas").onclick = () => {
+      if (fardos < seleccion.max) { fardos = Math.min(seleccion.max, fardos + seleccion.paso); actualizarFardos(); }
+    };
     $("btn-cancelar").onclick = inicio;
 
     $("btn-imprimir").onclick = async () => {
@@ -184,7 +193,9 @@
         linea: LINEA, presentacion_id: Number(seleccion.id),
         montacarguista: quien, comentarios: $("comentario").value,
       };
-      if (incompleta) cuerpo.fardos = fardos;
+      if (incompleta) {
+        if (seleccion.unidad === "bin") cuerpo.bolsas = fardos; else cuerpo.fardos = fardos;
+      }
       try {
         const r = await fetch("/api/tarima", {
           method: "POST",
@@ -211,6 +222,11 @@
       mostrarListo(t, datos.impreso ? "" : datos.mensaje);
     }
 
+    function cantidadTexto(t) {
+      if (t.unidad === "bin") return t.bolsas + " bolsas";
+      return t.fardos + (t.unidad === "caja" ? " cajas" : " fardos");
+    }
+
     function abrirEtiqueta(folio) {
       const q = new URLSearchParams({ auto: "1", volver: VOLVER });
       location.href = "/etiqueta/" + encodeURIComponent(folio) + "?" + q;
@@ -221,7 +237,7 @@
       ultimo = t.folio;
       $("listo-folio").textContent = "Pallet " + t.numero_pallet;
       $("listo-detalle").textContent =
-        t.presentacion + " · Lote " + t.lote + " · " + t.fardos + " fardos · " + t.libras + " lb";
+        t.presentacion + " · Lote " + t.lote + " · " + cantidadTexto(t) + " · " + t.libras + " lb";
       $("listo-error").textContent = error || "";
       mostrar("paso-listo");
       regresoAuto = setTimeout(inicio, 30000);  // regresa solo en 30 s

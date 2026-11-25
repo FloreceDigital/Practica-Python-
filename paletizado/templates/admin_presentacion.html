@@ -11,12 +11,19 @@
       <input name="descripcion" value="{{ p.descripcion if p }}" placeholder="ZULKA PURE CANE SUGAR 10/4 LBS"></label>
     <label>Código de material SAP
       <input name="codigo_sap" value="{{ p.codigo_sap if p }}" placeholder="25000307" inputmode="numeric"></label>
+    <label>Tipo de empaque
+      <select name="unidad">
+        {% for v, txt in [("fardo", "Fardo (usa lote de Bale)"), ("caja", "Caja (usa lote de caja)"), ("bin", "Bin (un bin por etiqueta, usa lote de caja)")] %}
+          <option value="{{ v }}" {{ "selected" if (p.unidad if p else "fardo") == v }}>{{ txt }}</option>
+        {% endfor %}
+      </select></label>
+    <p class="nota">En bin: "Bolsas por fardo" = bolsas por bin y "Fardos por tarima" = 1.</p>
     <div class="fila-campos">
       <label>Libras por bolsa
         <input name="libras_por_bolsa" type="number" step="0.001" min="0.001" value="{{ p.libras_por_bolsa if p }}" required></label>
-      <label>Bolsas por fardo
+      <label>Bolsas por fardo, caja o bin
         <input name="bolsas_por_fardo" type="number" min="1" value="{{ p.bolsas_por_fardo if p }}" required></label>
-      <label>Fardos por tarima
+      <label>Fardos o cajas por tarima
         <input name="fardos_por_tarima" type="number" min="1" value="{{ p.fardos_por_tarima if p }}" required></label>
     </div>
     <fieldset>
